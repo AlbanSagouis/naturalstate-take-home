@@ -33,10 +33,11 @@ Apply these conventions whenever writing or editing R code, and flag violations 
   default to silence, and both failure modes are the kind that corrupt a
   result without erroring: a duplicate key on the lookup side multiplies rows
   (and every sum computed downstream), an incomplete lookup fills columns with
-  `NA`. `relationship = "many-to-one"` / `"one-to-one"` and
-  `unmatched = "error"` turn each into a loud failure at the join, which
-  replaces the hand-written `anyDuplicated()` / `anyNA()` check that would
-  otherwise have to follow it. Where a fan-out or a drop is genuinely
+  `NA`. `relationship = "many-to-one"` / `"one-to-one"` turns the first into a
+  loud failure at the join, replacing a hand-written `anyDuplicated()` check.
+  `unmatched = "error"` only guards the side that can lose rows, so whether it
+  catches the `NA` fill depends on the verb (see the `left_join()` caveat
+  below). Where a fan-out or a drop is genuinely
   intended, still say so — `relationship = "many-to-many"`,
   `unmatched = "drop"` — so a reader sees a decision rather than an omission.
   Which verb takes what (dplyr 1.2.1, verified):
@@ -49,6 +50,14 @@ Apply these conventions whenever writing or editing R code, and flag violations 
     `unmatched` is an error.
   - `semi_join()` / `anti_join()`: neither; they take no `...`. Reach for
     them when the intent is filtering, not joining.
+  Caveat, verified in dplyr 1.2.1: to make "every row of `x` must find its
+  lookup row" a loud failure, `left_join(unmatched = "error")` is **not**
+  enough. It only errors on `y` keys that `x` never uses, and it silently
+  keeps an unmatched `x` row with `NA`. Use `inner_join(..., relationship =
+  "many-to-one", unmatched = c(x = "error", y = "drop"))` instead: it errors
+  on an `x` key missing from the lookup, tolerates extra lookup rows, and
+  keeps the row order of `x`. (Or `left_join()` followed by an explicit
+  `anyNA()` check on the looked-up column.)
   Use `join_by()` over a character vector whenever the join is non-equi
   (`>=`, `between()`, `overlaps()`), rolling (`closest()`), needs `x$`/`y$`
   disambiguation, or matches differently-named columns — `join_by(local ==

@@ -17,8 +17,9 @@ Time budget 4-6 h. AI use is encouraged but Alban must be able to explain every 
   as a comment on the issue, not only in the code.
 
 ## Conventions
-- R code follows the r-code-style skill (.claude/skills/r-code-style/). Quarto documents render
-  with `format: gfm`.
+- R code follows the r-code-style skill (.claude/skills/r-code-style/). Reports are R Markdown
+  (.Rmd) knitted to GitHub-flavoured Markdown with `rmarkdown::github_document`. Quarto only where
+  nothing else works (the vegetation dashboard).
 - Every report starts with a TL;DR (3-5 bullets: what, key result, key decision, what Tech must do).
 - renv for packages. Static figures in figures/ (ggplot2, sf).
 - Validate inputs explicitly (schemas, keys, joins with relationship/unmatched).
