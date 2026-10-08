@@ -28,8 +28,10 @@ Time budget 4-6 h. AI use is encouraged but Alban must be able to explain every 
 
 ## Git hooks
 Two hooks live in `.git/hooks/` (not pushed, so described here). Bypass with `--no-verify`.
-- pre-commit: never blocks. Reminds to update rulebook.md when R/birds/, R/vegetation/ or *.qmd
-  files are staged without it.
+- pre-commit: runs `air format` on staged .R files and restages them. Blocks if `air` is not on
+  PATH or if a staged R file also has unstaged edits (stage or stash them first). Also reminds
+  (never blocks) to update rulebook.md when R/birds/, R/vegetation/ or *.qmd files are staged
+  without it.
 - pre-push: fetches origin and warns, with a confirm prompt, if the remote branch has commits the
   local branch lacks. Skips on first push and in detached HEAD.
 
