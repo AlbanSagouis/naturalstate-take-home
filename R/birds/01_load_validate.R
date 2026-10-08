@@ -16,6 +16,7 @@ predictions <- read_csv(
   col_types = cols_only(
     selection = col_integer(),
     begin_time_s = col_double(),
+    end_time_s = col_double(),
     common_name = col_character(),
     species_code = col_character(),
     confidence = col_double(),
@@ -47,10 +48,9 @@ assert_numeric(x = validations$confidence, lower = 0, upper = 1)
 assert_true(x = all(validations$confidence > 0))
 assert_true(x = dplyr::n_distinct(validations$vBirdNET) == 1)
 
-n_dup_files <- sum(duplicated(validations$filename))
-if (n_dup_files > 0) {
-  cli::cli_alert_warning("{n_dup_files} duplicated validation filename(s).")
-}
+# Schema, uniqueness, species pairing and BirdNET run threshold (R/functions/)
+check_predictions_input(predictions = predictions)
+check_validations_input(validations = validations)
 
 # ---- Parse filenames --------------------------------------------------------
 validations <- validations |>
