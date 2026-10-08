@@ -96,6 +96,12 @@ Each decision is also added as a comment on its GitHub issue.
 
 # Observation labelling
 
+- **The nightjar evidence scope is stated in the report only, not as a column in the labelled
+  file**: the labelled predictions carry `observation` and `observation_status` and nothing about
+  scope. *(#4)* The caveat (validated on evening clips only) is the same for every nightjar row,
+  so a column would add bulk without information per row and something for Tech to carry; the
+  report states it once, where it is explained.
+
 - **Species below threshold or without one**: `observation` is NA and `observation_status` says
   why (observed / below_threshold / no_threshold). *(decided at setup)*
 
@@ -113,11 +119,11 @@ Each decision is also added as a comment on its GitHub issue.
 
 - **Validated clips are linked to predictions on device + date + hour, species and score**:
   recording start times are snapped to the nearest hour and scores are compared at 3 decimals.
-  *(2026-10-08, #2)* Matching on the exact recording name leaves 288 of 551 validations unmatched
-  because recorder clocks drift (seconds `02` in validations, `00` in predictions). After
-  snapping: 458 unique, 65 ambiguous, 28 unmatched (25 are rounding differences under 0.001, one
-  recording is absent from the predictions). The link is for reporting only; thresholds do not
-  need it.
+  *(2026-10-08, #2)* Matching on the exact recording name leaves 298 of 551 validations unmatched
+  because recorder clocks drift: 288 validation recording names have non-zero seconds, while
+  predictions always end in `00`. After snapping: 458 unique, 65 ambiguous, 28 unmatched (25 are
+  rounding differences under 0.001, one recording is absent from the predictions). The link is for
+  reporting only; thresholds do not need it.
 
 - **Validations lack a prediction ID**: matching on recording + species + confidence is partial.
   *(decided at setup)* Reported as an upstream data issue, not worked around.

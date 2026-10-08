@@ -62,7 +62,12 @@ birds_config <- list(
     daypart = here::here("data", "processed", "birds_daypart.csv"),
     figure_device = here::here("figures", "birds_device_effects.png"),
     calibration = here::here("data", "processed", "birds_calibration.csv"),
-    figure_calibration = here::here("figures", "birds_calibration.png")
+    figure_calibration = here::here("figures", "birds_calibration.png"),
+    labelled = here::here(
+      "outputs",
+      "birds",
+      "birdnet_predictions_labelled.csv"
+    )
   )
 )
 
