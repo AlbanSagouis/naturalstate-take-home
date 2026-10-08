@@ -1,0 +1,711 @@
+---
+title: "BirdNET species thresholds: methods report (first draft)"
+author: "Alban Sagouis"
+date: "2026-10-08"
+output:
+  github_document:
+    html_preview: false
+    md_extensions: -implicit_figures
+    pandoc_args: ["--markdown-headings=atx"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+
+source(file = here::here("R", "birds", "config.R"))
+
+# Every number in this report is read from data/processed/ and outputs/ (written
+# by R/birds/01 to 04) or from the raw predictions. Nothing is typed by hand.
+read_processed <- function(file) {
+  readr::read_csv(
+    file = here::here("data", "processed", file),
+    show_col_types = FALSE
+  )
+}
+
+evidence <- read_processed(file = "birds_threshold_evidence.csv")
+aic <- read_processed(file = "birds_aic.csv")
+calibration <- read_processed(file = "birds_calibration.csv")
+coverage <- read_processed(file = "birds_covariate_coverage.csv")
+daypart <- read_processed(file = "birds_daypart.csv")
+device_boot <- read_processed(file = "birds_device_bootstrap.csv")
+leave_device_out <- read_processed(file = "birds_leave_device_out.csv")
+link_diag <- read_processed(file = "birds_link_diagnostics.csv")
+min_group <- read_processed(file = "birds_min_group_sensitivity.csv")
+sensitivity <- read_processed(file = "birds_threshold_sensitivity.csv")
+linked <- read_processed(file = "birds_validations_linked.csv")
+
+# Raw predictions (read only, never modified): total and score medians
+predictions <- readr::read_csv(
+  file = birds_config$paths$predictions,
+  col_select = c("common_name", "confidence"),
+  show_col_types = FALSE
+)
+n_predictions <- nrow(predictions)
+
+# Observation labels written by R/birds/04_label_observations.R
+labelled <- readr::read_csv(
+  file = birds_config$paths$labelled,
+  col_select = c("common_name", "observation_status"),
+  show_col_types = FALSE
+)
+
+# Formatting helpers
+f1 <- function(x) sprintf(fmt = "%.1f", x)
+f2 <- function(x) sprintf(fmt = "%.2f", x)
+f3 <- function(x) sprintf(fmt = "%.3f", x)
+pct0 <- function(x) sprintf(fmt = "%.0f%%", 100 * x)
+pct1 <- function(x) sprintf(fmt = "%.1f%%", 100 * x)
+big <- function(x) format(x, big.mark = ",", trim = TRUE)
+
+# One row per species, and one-row look-ups used in the prose
+sp_nightjar <- "Abyssinian Nightjar"
+sp_firefinch <- "Red-billed Firefinch"
+sp_oriole <- "African Black-headed Oriole"
+sp_plover <- "Three-banded Plover"
+pick <- function(data, species) filter(data, commonName == species)
+
+nj <- pick(data = evidence, species = sp_nightjar)
+ff <- pick(data = evidence, species = sp_firefinch)
+pl <- pick(data = evidence, species = sp_plover)
+ori <- pick(data = evidence, species = sp_oriole)
+
+# Median score of the validated clips against all predictions
+median_score <- function(data, species, column) {
+  data |>
+    filter(.data[[column]] == species) |>
+    pull(confidence) |>
+    median()
+}
+nj_med_val <- median_score(data = linked, species = sp_nightjar, column = "commonName")
+nj_med_pred <- median_score(data = predictions, species = sp_nightjar, column = "common_name")
+ff_med_val <- median_score(data = linked, species = sp_firefinch, column = "commonName")
+ff_med_pred <- median_score(data = predictions, species = sp_firefinch, column = "common_name")
+
+n_validated <- sum(evidence$n_neg + evidence$n_pos)
+n_fitted <- sum(evidence$status == "fitted threshold")
+
+# Input checks: the prose assumes one fitted species, the nightjar
+checkmate::assert_true(x = n_fitted == 1L)
+checkmate::assert_true(x = nj$status == "fitted threshold")
+checkmate::assert_true(x = n_validated == nrow(linked))
+checkmate::assert_true(x = nrow(labelled) == n_predictions)
+checkmate::assert_set_equal(
+  x = evidence$commonName,
+  y = c(sp_nightjar, sp_oriole, sp_firefinch, sp_plover)
+)
+
+# Linking
+link_exact <- filter(link_diag, rule == "exact recording name, rounded score")
+link_final <- filter(link_diag, stringi::stri_detect_fixed(str = rule, pattern = "(final)"))
+n_drift <- sum(!stringi::stri_endswith_fixed(str = linked$recording, pattern = "00"))
+checkmate::assert_true(x = link_exact$n_validations == n_validated)
+
+# Clamp sensitivity (nightjar), rounded to three decimals
+nj_sens <- pick(data = sensitivity, species = sp_nightjar)
+nj_clamp <- nj_sens |>
+  filter(parameter == "clamp_max") |>
+  pull(glm_threshold) |>
+  round(digits = 3)
+checkmate::assert_true(x = dplyr::n_distinct(nj_clamp) == 1L)
+
+# Recorders (device) coverage
+dev_summary <- function(species, what) {
+  coverage |>
+    filter(commonName == species, dimension == "summary", level == what) |>
+    pull(value)
+}
+nj_devices <- coverage |>
+  filter(commonName == sp_nightjar, dimension == "device") |>
+  arrange(desc(n_neg))
+nj_top2 <- nj_devices[[1, "level"]] |> c(nj_devices[[2, "level"]])
+checkmate::assert_true(x = all(nj_devices$n_pos[1:2] == 0L))
+
+# Leave-one-recorder-out
+lodo_single <- function(species) {
+  leave_device_out |>
+    filter(
+      commonName == species,
+      !stringi::stri_detect_fixed(str = dropped, pattern = "none"),
+      !stringi::stri_detect_fixed(str = dropped, pattern = "+")
+    )
+}
+nj_lodo <- lodo_single(species = sp_nightjar)
+ff_lodo <- lodo_single(species = sp_firefinch)
+nj_lodo_pair <- leave_device_out |>
+  filter(
+    commonName == sp_nightjar,
+    stringi::stri_detect_fixed(str = dropped, pattern = "+")
+  )
+checkmate::assert_true(x = nrow(nj_lodo_pair) == 1L)
+
+nj_dboot <- pick(data = device_boot, species = sp_nightjar)
+ff_dboot <- pick(data = device_boot, species = sp_firefinch)
+
+# Day-part
+dp_nj <- pick(data = daypart, species = sp_nightjar)
+dp_ff <- pick(data = daypart, species = sp_firefinch)
+dp_nj_night <- filter(dp_nj, n_neg == 0L)
+dp_ff_dawn <- filter(dp_ff, stringi::stri_startswith_fixed(str = daypart, pattern = "dawn"))
+
+# Calibration, top nightjar band
+cal_top <- calibration |>
+  filter(commonName == sp_nightjar, is_top_band)
+
+# Recording period (all validated clips)
+rec_dates <- as.Date(
+  x = stringi::stri_sub(str = linked$recording, from = 7L, to = 14L),
+  format = "%Y%m%d"
+)
+period <- range(rec_dates)
+n_days <- as.integer(diff(period)) + 1L
+
+# Nightjar by week of the recording period, and by the two recorders holding
+# most of the wrong clips (potential date effect)
+fmt_day <- function(d) sub(pattern = "^0", replacement = "", x = format(d, "%d %B"))
+nj_clips <- linked |>
+  filter(commonName == sp_nightjar) |>
+  mutate(
+    device = stringi::stri_extract_first_regex(str = recording, pattern = "^[A-Za-z0-9]+"),
+    date = as.Date(stringi::stri_sub(str = recording, from = 7L, to = 14L), format = "%Y%m%d"),
+    week = as.integer(floor(as.numeric(date - min(rec_dates)) / 7)) + 1L,
+    top2 = is.element(el = device, set = nj_top2)
+  )
+nj_week <- nj_clips |>
+  summarise(
+    clips = n(),
+    wrong = sum(outcome == 0L),
+    wrong_top2 = sum(outcome == 0L & top2),
+    clips_other = sum(!top2),
+    wrong_other = sum(outcome == 0L & !top2),
+    .by = week
+  ) |>
+  arrange(week)
+# Same weekly clip counts as the coverage table
+nj_week_cov <- coverage |>
+  filter(commonName == sp_nightjar, dimension == "week") |>
+  arrange(level)
+checkmate::assert_true(x = all(nj_week$clips == nj_week_cov$n_clips))
+nj_late <- filter(nj_week, week >= 2L)
+nj_top2_dates <- nj_clips |>
+  filter(top2) |>
+  pull(date) |>
+  range()
+nj_other_by_week <- nj_week |>
+  filter(clips_other > 0L) |>
+  mutate(text = paste0(wrong_other, " of ", clips_other, " in week ", week)) |>
+  pull(text)
+```
+
+## 1. TL;DR
+
+- **What I did.** I followed the Wood & Kahl (2024) recipe to turn
+  `r n_validated` expert-validated BirdNET clips into a confidence
+  threshold per species, for four species, and added checks for model
+  fit, recorder effects and day-part effects (#3).
+- **Key result.** Only the Abyssinian Nightjar gets a threshold:
+  `r f3(nj$glm_threshold)` (bootstrap interval `r f2(nj$boot_lower)` to
+  `r f2(nj$boot_upper)`). The other three (African Black-headed Oriole,
+  Three-banded Plover, Red-billed Firefinch) get `no_threshold` because
+  the validation sample cannot support a fit.
+- **Key decision.** One method and one precision target
+  (`r birds_config$target_precision`) for every species. A species that
+  fails the data gates is not given a special-case threshold. It is
+  given a request for more validation.
+- **What is uncertain.** The `r birds_config$target_precision` is a
+  claim from the model, not something observed. The nightjar threshold
+  rests on `r nj$n_neg` wrong clips, almost all from two recorders and
+  all from the evening, so its reach beyond those conditions is not
+  established.
+- **What I ask of the experts.** Random validation clips across more
+  areas, periods and recorders for every species, and especially random
+  nightjar clips at night (section 9).
+
+## 2. Data and how it was validated
+
+BirdNET gave `r big(n_predictions)` predictions. The experts validated
+`r n_validated` clips across four species. Each clip was marked right
+(outcome 1) or wrong (outcome 0). I call these right clips and wrong
+clips throughout.
+
+```{r chunk-validated}
+evidence |>
+  arrange(commonName) |>
+  mutate(
+    score_min = f3(score_min),
+    score_max = f3(score_max)
+  ) |>
+  select(
+    Species = commonName,
+    `Wrong clips` = n_neg,
+    `Right clips` = n_pos,
+    `Lowest score` = score_min,
+    `Highest score` = score_max
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "r", "r", "l", "l"))
+```
+
+### 2.1 The validation sample is enriched, not random
+
+Wood & Kahl step 1 asks for validation clips spread across the whole
+confidence range, so that the curve has data at both ends. This is also
+why the share of right clips in the sample is not the precision of
+BirdNET in the full data.
+
+I do not know how the clips were chosen. They score higher than the
+predictions as a whole (nightjar median `r f2(nj_med_val)` against
+`r f2(nj_med_pred)`), which fits a sample enriched for high scores. The
+firefinch is the exception (`r f2(ff_med_val)` against
+`r f2(ff_med_pred)`). If the clips were also picked for being clear
+examples, the fitted curve would look better than it should, and I
+cannot rule that out.
+
+### 2.2 Linking validations to predictions
+
+The validation file has no prediction ID, so I link on recording,
+species and score as a best effort and report how well it works.
+Nothing in the thresholds or the labels depends on that link. Matching
+on the exact recording name leaves `r link_exact$unmatched` of
+`r n_validated` validations unmatched (only `r n_validated - n_drift` of
+the `r n_validated` recording names are found verbatim in the
+predictions). The cause is recorder clock drift: `r n_drift` validation
+recording names have a seconds field other than `00`, while the
+predictions always end in `00`. Snapping start times to the nearest
+hour, and comparing scores at three decimals, gives
+`r link_final$unique` unique matches, `r link_final$ambiguous` ambiguous
+and `r link_final$unmatched` unmatched. Of those unmatched,
+`r link_final$residual_within_0.001` are rounding differences under
+0.001 and `r link_final$residual_recording_absent` recording is absent
+from the predictions.
+
+The missing prediction ID is an upstream data issue. The fix is for the
+validation export to carry the clip's start position in the recording
+(or a prediction ID), the same recording identifier as the predictions,
+and scores at full precision. The handoff to Tech (#5) spells this out.
+
+## 3. The model
+
+For each species I fit a logistic regression of the clip outcome (right
+or wrong) on the BirdNET confidence, after transforming the confidence
+to the logit scale (the log of odds, which stretches the 0 to 1 range so
+scores near 1 are not squeezed together). This is the Wood & Kahl
+method. The fitted curve gives the chance that a prediction is right at
+any score. The threshold is the score at which that chance reaches
+`r birds_config$target_precision`, found by solving the fitted curve for
+`r birds_config$target_precision` (`r birds_config$target_precision` is
+set in the config file as the target precision).
+
+### 3.1 One addition of mine
+
+A confidence of exactly 1.0 has no finite logit, and the Wood & Kahl
+code does not handle it. I set those scores to
+`r birds_config$clamp_max` before the transform. Moving this value to
+`r birds_config$clamp_sensitivity[[1]]` or `r birds_config$clamp_sensitivity[[3]]`
+does not change the nightjar threshold at three decimals
+(`r f3(nj_clamp[[1]])` in all three cases).
+
+### 3.2 What the confidence column is
+
+The confidence column is the bounded 0 to 1 BirdNET score. The BirdNET
+sensitivity setting is not recorded in the data, but it does not change
+the threshold in confidence units.
+
+## 4. Who gets a threshold
+
+Two separate questions.
+
+### 4.1 Question 1: do the data allow a threshold?
+
+This decides whether a species gets one. There are two gates, applied
+identically to every species:
+
+1.  The fitted threshold lies inside the range of scores that were
+    validated.
+2.  The smaller of the two outcome groups (wrong clips or right clips)
+    has at least `r birds_config$min_smaller_group` clips.
+
+The `r birds_config$min_smaller_group` is deliberately strict. It is set
+in the config file and could be relaxed if expert validation time makes
+it unreasonable. The table shows what happens at
+`r birds_config$min_smaller_group_sensitivity[[1]]`,
+`r birds_config$min_smaller_group_sensitivity[[2]]` and
+`r birds_config$min_smaller_group_sensitivity[[3]]`.
+
+```{r chunk-min-group}
+min_group |>
+  select(
+    `Minimum in smaller group` = min_smaller_group,
+    `Species passing` = n_pass,
+    Which = species_pass
+  ) |>
+  knitr::kable(format = "pipe", align = c("r", "r", "l"))
+```
+
+The answer is the same at `r birds_config$min_smaller_group_sensitivity[[1]]`,
+`r birds_config$min_smaller_group_sensitivity[[2]]` and
+`r birds_config$min_smaller_group_sensitivity[[3]]`: only the nightjar
+passes (smaller group of `r nj$smaller_group`). The firefinch has a
+smaller group of `r ff$smaller_group`, so it would pass the count gate
+at `r birds_config$min_smaller_group_sensitivity[[1]]`, but its fitted
+threshold (`r f3(ff$glm_threshold)`) sits above every validated score
+(highest `r f3(ff$score_max)`), so it fails the range gate. Plover
+(`r pl$n_neg` wrong clip) and oriole (`r ori$n_neg` wrong clips) fail the
+count gate at every setting.
+
+Stability under bootstrap is reported, not a gate. The bootstrap
+(resampling with replacement) redraws the validated clips, as many as
+the original sample, and refits the curve `r big(birds_config$n_boot)`
+times. I report the share of bootstrap fits that fail and the interval of
+the bootstrapped thresholds. Today the count and range gates already give
+the same answer, so a third gate would add a number to defend without a
+new result. I keep the numbers because refits will need them (section 8).
+
+### 4.2 Question 2: does it generalise?
+
+A threshold is fitted on the clips the experts validated. Question 2
+asks whether it would still hold for clips from other recorders, other
+hours of the day, other dates or other places.
+
+This question does not decide whether a species gets a threshold: only
+the two gates in 4.1 do. Instead, the answer is reported next to the
+threshold as its **scope**, meaning the conditions it was actually
+checked under. The checks are in section 7. For the nightjar they show
+that the threshold rests mostly on evening clips from a few recorders,
+so its reach beyond those conditions is not established.
+
+### 4.3 One method and one precision target for every species
+
+No species gets a stricter or looser cutoff than the method gives. More
+certainty is available (more validation, a more cautious cutoff), but it
+costs expert time and cannot reasonably be afforded for every species. A
+stricter cutoff for some species would lower their counts for reasons
+unrelated to biology and distort relative abundances across species. One
+limit to state: a common precision target does not make recall equal
+across species. Wood & Kahl note this and say recall may matter more for
+between-species comparisons. I have no recall figure in the data, so I
+do not report one here.
+
+## 5. Results per species
+
+```{r chunk-results}
+evidence |>
+  mutate(
+    estimate = if_else(is.na(glm_threshold), "none", f3(glm_threshold)),
+    interval = if_else(
+      is.na(boot_lower),
+      "none",
+      paste(f2(boot_lower), "to", f2(boot_upper))
+    ),
+    failed = pct0(boot_share_failed),
+    outcome = if_else(status == "fitted threshold", status, "no_threshold")
+  ) |>
+  select(
+    Species = commonName,
+    `Wrong clips` = n_neg,
+    `Right clips` = n_pos,
+    `Smaller group` = smaller_group,
+    `In range` = in_range,
+    `Threshold estimate` = estimate,
+    `Bootstrap interval` = interval,
+    `Failed bootstrap fits` = failed,
+    Outcome = outcome
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "r", "r", "r", "l", "l", "l", "l", "l"))
+```
+
+The threshold estimate is shown for every species the model could fit,
+for transparency. It becomes a threshold only where the outcome says so.
+The plover estimate comes from a single wrong clip and the firefinch
+estimate lies outside the validated range.
+
+The nightjar threshold is `r f3(nj$glm_threshold)`. In the validation
+sample, `r nj$prec_at_glm_n_pos` of the `r nj$prec_at_glm_n` clips at or
+above it were right. With so few clips, the lower end of a
+`r birds_config$ci_level * 100`% interval on that precision is
+`r f3(nj$prec_at_glm_cp_lower)`, so the data do not rule out a real
+precision below `r birds_config$target_precision`.
+
+![Validated clips and the fitted curve per species. The red line marks the threshold, fitted species only; the dashed line is a 0.99 chance of being correct. Description: Four panels, one per species, showing validated clips as right (top) or wrong (bottom) against BirdNET confidence. Only the Abyssinian Nightjar panel has a fitted curve and a vertical threshold line near 0.67.](figures/birds_threshold_fits.png)
+
+Labelling uses the point estimate: predictions at or above the fitted
+threshold are `observed`. The bootstrap interval is stored and reported
+next to it, but there is no second, more cautious cutoff.
+
+## 6. Model checks
+
+### 6.1 Calibration
+
+The figure groups the validated clips into score bands and compares the
+share the experts found right (black, with a 95% interval) with what the
+fitted curve predicts (red). Agreement means the curve describes the
+data in that band.
+
+![Calibration by score band: share found right against the fitted curve. Description: Two panels, nightjar and firefinch. Black points with intervals show the share of right clips per score band; a red line shows the fitted curve. For the nightjar the points sit close to the red line; the top band holds many clips and sits at 1.](figures/birds_calibration.png)
+
+For the nightjar the points sit close to the curve in most bands, and
+the top band (scores from `r f3(cal_top$conf_min)`, `r cal_top$n` clips)
+has `r cal_top$n_correct` right clips against `r f3(cal_top$predicted)`
+predicted. For the firefinch the shares are small and the intervals
+wide, so there is no clear misfit but little else to learn.
+
+### 6.2 AIC
+
+I computed AIC (a score that compares models by fit, penalising extra
+terms) for three models, as in the Wood & Kahl tutorial: no score, score
+on the confidence scale, and score on the logit scale. I did not use it
+to choose a model. We use only the logit-scale model. Difference from
+the best model, per species:
+
+```{r chunk-aic}
+aic |>
+  select(commonName, model, delta_aic) |>
+  tidyr::pivot_wider(names_from = model, values_from = delta_aic) |>
+  mutate(across(.cols = -commonName, .fns = f1)) |>
+  select(
+    Species = commonName,
+    `No score` = null,
+    `Confidence scale` = confidence_scale,
+    `Logit scale` = logit_scale
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "r", "r", "r"))
+```
+
+For the nightjar the score clearly matters and the two scales are close
+to tied. For the firefinch the score barely helps. For the plover the
+comparison is not meaningful with one wrong clip.
+
+### 6.3 What the checks show
+
+They show that the nightjar curve fits the clips we have. They do not
+show that it holds for other recorders, times or places; that is
+section 7.
+
+## 7. Sensitivity analysis: recorder, day-part, date
+
+### 7.1 Why
+
+Wood & Kahl warn that a threshold only holds for the conditions it was
+validated under, but their tutorial does not run the check. I made it a
+routine step. Device, date and hour come from the recording names.
+Recorder model and sample rate are not in the data.
+
+### 7.2 Recorders
+
+For the nightjar, `r nj$n_neg` wrong clips sit on
+`r dev_summary(species = sp_nightjar, what = "n_devices_with_negatives")`
+of `r dev_summary(species = sp_nightjar, what = "n_devices")` recorders,
+and `r pct0(dev_summary(species = sp_nightjar, what = "share_negatives_top2_devices"))`
+of them are on two recorders (`r nj_top2[[1]]` and `r nj_top2[[2]]`),
+which have no right clips. Recorder and score therefore cannot be
+separated. The firefinch is the comparison: its wrong clips are spread
+over `r dev_summary(species = sp_firefinch, what = "n_devices_with_negatives")`
+recorders and the top two hold
+`r pct0(dev_summary(species = sp_firefinch, what = "share_negatives_top2_devices"))`.
+
+![Validated clips by recorder. Red marks the two recorders holding most of the species’ wrong clips. Description: Two panels, nightjar and firefinch, showing validated clips against confidence. Red points mark clips from the two recorders with most wrong clips; for the nightjar they cluster among the wrong clips at low scores.](figures/birds_device_effects.png)
+
+### 7.3 Leave-one-recorder-out (a jackknife at recorder level)
+
+I refit the nightjar threshold dropping each recorder in turn. It stays
+between `r f2(min(nj_lodo$threshold))` and `r f2(max(nj_lodo$threshold))`
+(full data `r f3(nj$glm_threshold)`). Dropping both of the two recorders
+with most wrong clips gives `r f3(nj_lodo_pair$threshold)`, with
+`r nj_lodo_pair$n_neg` wrong clips left.
+
+### 7.4 Device-level bootstrap against clip bootstrap
+
+Resampling recorders (with replacement) instead of clips gives
+`r f2(nj_dboot$dboot_lower)` to `r f2(nj_dboot$dboot_upper)` for the
+nightjar, against `r f2(nj_dboot$clip_boot_lower)` to
+`r f2(nj_dboot$clip_boot_upper)` from resampling clips. The two agree,
+so treating clips as independent does not make the interval look better
+than it is. For the firefinch the recorder-level interval is
+`r f2(ff_dboot$dboot_lower)` to `r f2(ff_dboot$dboot_upper)`, with
+`r pct0(ff_dboot$dboot_share_failed)` of fits failing, and every
+leave-one-out value stays between `r f3(min(ff_lodo$threshold))` and
+`r f3(max(ff_lodo$threshold))`, outside the validated range.
+
+### 7.5 Day-part
+
+```{r chunk-daypart}
+daypart |>
+  mutate(delta_aic = if_else(is.na(delta_aic), "n/a", f3(delta_aic))) |>
+  select(
+    Species = commonName,
+    `Day-part` = daypart,
+    `Wrong clips` = n_neg,
+    `Right clips` = n_pos,
+    Estimable = estimable,
+    `Delta AIC` = delta_aic
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "l", "r", "r", "l", "r"))
+```
+
+All `r dp_nj |> filter(n_neg > 0) |> pull(n_neg)` nightjar wrong clips are
+from hours 16 to 23, and all `r dp_nj_night$n_pos` clips from hours 0 to
+6 are right. A day-part effect cannot be estimated for the nightjar
+because the night group has no wrong clips. Device, time of day and score
+cannot be separated in this sample. Night looks cleaner, so applying the
+evening-based threshold at night errs on the safe side, but that is
+unverified. For the firefinch, adding a day-part term does not improve
+the fit (delta AIC `r f1(dp_ff_dawn$delta_aic)`), though only
+`r dp_ff_dawn$n_neg + dp_ff_dawn$n_pos` of its clips are dawn or night.
+
+### 7.6 Date and season
+
+Nightjar validated clips by week of the recording period:
+
+```{r chunk-week}
+coverage |>
+  filter(commonName == sp_nightjar, dimension == "week") |>
+  select(
+    Week = level,
+    Clips = n_clips,
+    `Wrong clips` = n_neg,
+    `Right clips` = n_pos
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "r", "r", "r"))
+```
+
+Date cannot be separated either. Nightjar wrong clips rise from
+`r nj_week$wrong[[1]]` of `r nj_week$clips[[1]]` clips in week 1 to
+`r nj_week$wrong[[3]]` of `r nj_week$clips[[3]]` in week 3, but
+`r sum(nj_late$wrong_top2)` of the `r sum(nj_late$wrong)` wrong clips in
+weeks 2 to 4 come from `r nj_top2[[1]]` and `r nj_top2[[2]]`, which were
+validated only between `r fmt_day(nj_top2_dates[[1]])` and
+`r fmt_day(nj_top2_dates[[2]])`. Among the other recorders, wrong clips
+are rare in every week (`r knitr::combine_words(nj_other_by_week, and = " and ")`).
+Date is a potential effect worth testing once validation covers more
+weeks and recorders, but this sample cannot tell it apart from the
+recorder effect.
+
+Season is a separate reason for caution. Vocal activity is seasonal, and
+breeding calls in particular do not happen all year, so the kind of sound
+BirdNET scores can change through the year. All validated clips come from
+`r n_days` days in `r format(period[[1]], "%B")` and
+`r format(period[[2]], "%B %Y")`, a single season. A threshold fitted on
+them may not hold at other times of year, which is why Wood & Kahl
+advise another round of validation when the season changes.
+
+### 7.7 Reading
+
+The nightjar threshold is stable to dropping any one recorder and to
+resampling recorders, so the number is stable. Its scope is not
+established: it is estimated mostly from evening clips and from a few
+recorders.
+
+### 7.8 This should run on every refit
+
+The recorder check, the device bootstrap and the day-part check are
+cheap once the data exist, and a refit is exactly when new recorders,
+hours and places enter the sample.
+
+## 8. Planning for refits
+
+When new validations arrive and thresholds are refitted, the same
+diagnostics table (clip counts, range check, bootstrap failure share and
+interval, calibration, recorder and hour checks) can feed a monitoring
+dashboard for the senior data scientist and Biometrics. They can then
+see at a glance whether a refit is trustworthy. The recorder and
+environment sensitivity analysis is their job, run at project level on
+every refit. There is one recorder per SD card, so the comparison is
+across devices within a project.
+
+## 9. Requests to the ornithologist and Biometrics
+
+1.  **Random validation clips for every species**, drawn across more
+    areas, recorders, hours of the day and seasons, and across the whole
+    recording period for each recorder, so the sample captures the
+    variation in each species’ calls and does not tie recorder, hour and
+    date together. Species with no threshold (oriole, plover, firefinch)
+    need this first.
+2.  **Random nightjar clips at night.** Today every wrong nightjar clip
+    is from the evening.
+3.  **Metadata.** Tech should pass the recorder, BirdNET version and
+    settings, site, habitat and date-time with every prediction. The
+    full list is in the handoff to Tech (#5).
+
+## 10. Limits
+
+- **Scope of the nightjar threshold.** `r nj$n_neg` wrong clips,
+  `r pct0(dev_summary(species = sp_nightjar, what = "share_negatives_top2_devices"))`
+  on two recorders, all in the evening. It is labelled for all hours, with
+  that evidence scope stated.
+- **One grid and a short period.** All validated clips come from one
+  grid over `r n_days` days (`r format(period[[1]])` to
+  `r format(period[[2]])`). The grid is Grid2: every one of the
+  predictions comes from it. The days sit in one season, so nothing in
+  this sample tests whether the thresholds hold across the year.
+- **Recall** is not equalised across species by a common precision
+  target.
+
+## 11. Observation labelling (#4)
+
+### 11.1 The rule
+
+Every prediction gets two new fields. `observation_status` is `observed`
+when the species has a threshold and the confidence is at or above it,
+`below_threshold` when the species has a threshold and the confidence is
+below it, and `no_threshold` when the species has none. `observation`
+holds the species name for `observed` rows and is empty otherwise. The
+experts' validations do not override the model's label.
+
+### 11.2 Result
+
+```{r chunk-labelled}
+labelled |>
+  count(common_name, observation_status) |>
+  tidyr::pivot_wider(
+    names_from = observation_status,
+    values_from = n,
+    values_fill = 0L
+  ) |>
+  arrange(common_name) |>
+  mutate(across(.cols = -common_name, .fns = big)) |>
+  select(
+    Species = common_name,
+    observed,
+    below_threshold,
+    no_threshold
+  ) |>
+  knitr::kable(format = "pipe", align = c("l", "r", "r", "r"))
+```
+
+```{r labelled-totals}
+n_status <- function(what) sum(labelled$observation_status == what)
+share_status <- function(what) pct1(n_status(what = what) / n_predictions)
+```
+
+Of the `r big(n_predictions)` predictions, `r big(n_status(what = "observed"))`
+(`r share_status(what = "observed")`) are observations,
+`r big(n_status(what = "below_threshold"))`
+(`r share_status(what = "below_threshold")`) are below threshold and
+`r big(n_status(what = "no_threshold"))`
+(`r share_status(what = "no_threshold")`) have no threshold. The labelled
+file is `outputs/birds/birdnet_predictions_labelled.csv`: the 13 raw
+columns plus the two new ones, one row per prediction.
+
+### 11.3 Limits
+
+Only the nightjar has observations. The oriole alone is
+`r pct0(sum(labelled$common_name == sp_oriole) / n_predictions)` of all
+predictions and has none until it is validated more widely (section 9).
+The nightjar labels apply to all hours of the day, but its threshold was
+checked only on evening clips from a few recorders (sections 7 and 10).
+
+## Reproduce
+
+The numbers in this report come from the files in `data/processed/`,
+`outputs/birds/` and the raw predictions. The report is produced by
+`rmarkdown::render("birds_report.Rmd")`. To regenerate and check the
+numbers, run from the project root in a fresh R session:
+
+```{r reproduce, echo=TRUE, eval=FALSE}
+source(here::here("R", "birds", "01_load_validate.R"))
+source(here::here("R", "birds", "02_threshold_evidence.R"))
+source(here::here("R", "birds", "03_robustness_checks.R"))
+source(here::here("R", "birds", "04_label_observations.R"))
+testthat::test_dir(here::here("tests", "testthat"))
+rmarkdown::render(here::here("birds_report.Rmd"))
+```
