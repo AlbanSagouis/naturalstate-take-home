@@ -26,5 +26,12 @@ Entry format: **Question**: the decision, in one line. *(issue #n)* The rule, an
   on; pipeline-internal problems (keys, joins) stay out. *(decided at setup)*
 
 # Data issues upstream
+- **Validated clips are linked to predictions on device + date + hour, species and score**:
+  recording start times are snapped to the nearest hour, scores compared at 3 decimals.
+  *(issue #2)* Matching on the exact recording name leaves 288 of 551 validations unmatched
+  because recorder clocks drift (seconds `02` in validations, `00` in predictions). After
+  snapping: 458 unique, 65 ambiguous, 28 unmatched (25 are rounding differences under 0.001,
+  one recording is absent from the predictions). The link is for reporting only; thresholds do
+  not need it.
 - **Validations lack a prediction ID**: matching on recording + species + confidence is partial.
   *(decided at setup)* Reported as an upstream data issue, not worked around.
