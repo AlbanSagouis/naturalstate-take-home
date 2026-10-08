@@ -1,0 +1,26 @@
+# Agents
+.claude/settings.local.json
+
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Quarto
+.quarto/
+*_files/
+*_cache/
+
+# Received brief and copyrighted paper (kept local)
+brief/
+
+# macOS / Windows
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.posit/
