@@ -1,5 +1,5 @@
 ---
-title: "BirdNET species thresholds: methods report (first draft)"
+title: "BirdNET species thresholds: methods report"
 author: "Alban Sagouis"
 date: "2026-10-08"
 output:
@@ -47,7 +47,7 @@ n_predictions <- nrow(predictions)
 # Observation labels written by R/birds/04_label_observations.R
 labelled <- readr::read_csv(
   file = birds_config$paths$labelled,
-  col_select = c("common_name", "observation_status"),
+  col_select = c("common_name", "confidence", "observation_status"),
   show_col_types = FALSE
 )
 
@@ -218,9 +218,11 @@ nj_other_by_week <- nj_week |>
   rests on `r nj$n_neg` wrong clips, almost all from two recorders and
   all from the evening, so its reach beyond those conditions is not
   established.
-- **What I ask of the experts.** Random validation clips across more
-  areas, periods and recorders for every species, and especially random
-  nightjar clips at night (section 9).
+- **What I ask of others.** From the experts, random validation clips
+  across more areas, periods and recorders for every species, and
+  especially random nightjar clips at night (section 9). From Tech, the
+  labelling step after every upload and a prediction ID stored with every
+  validation (see the handoff).
 
 ## 2. Data and how it was validated
 
@@ -301,15 +303,16 @@ set in the config file as the target precision).
 A confidence of exactly 1.0 has no finite logit, and the Wood & Kahl
 code does not handle it. I set those scores to
 `r birds_config$clamp_max` before the transform. Moving this value to
-`r birds_config$clamp_sensitivity[[1]]` or `r birds_config$clamp_sensitivity[[3]]`
+`r as.character(birds_config$clamp_sensitivity[[1]])` or `r as.character(birds_config$clamp_sensitivity[[3]])`
 does not change the nightjar threshold at three decimals
 (`r f3(nj_clamp[[1]])` in all three cases).
 
 ### 3.2 What the confidence column is
 
 The confidence column is the bounded 0 to 1 BirdNET score. The BirdNET
-sensitivity setting is not recorded in the data, but it does not change
-the threshold in confidence units.
+sensitivity setting is not recorded in the data, so I do not know
+whether the threshold changes with it. The handoff therefore keys every
+threshold to the BirdNET version and settings it was fitted on.
 
 ## 4. Who gets a threshold
 
@@ -360,6 +363,18 @@ times. I report the share of bootstrap fits that fail and the interval of
 the bootstrapped thresholds. Today the count and range gates already give
 the same answer, so a third gate would add a number to defend without a
 new result. I keep the numbers because refits will need them (section 8).
+
+The gate counts wrong clips because the logistic fit needs both
+outcomes. A species whose validated clips are all right, such as the
+oriole (`r evidence$n_pos[evidence$n_neg == 0]` of
+`r evidence$n_pos[evidence$n_neg == 0]` right), gets no fit and no
+threshold, even though that is good evidence of high precision. The
+gate is a rule about what the model can fit, not a verdict on the
+species. I also checked separation, which makes a logistic slope
+unstable: `r sum(evidence$perfect_separation | evidence$near_separation, na.rm = TRUE)`
+of the `r sum(!is.na(evidence$perfect_separation))` species with both
+outcomes show it (the score ranges of right and wrong clips overlap, and
+glm raised no fitted-probability warning).
 
 ### 4.2 Question 2: does it generalise?
 
@@ -686,7 +701,33 @@ Of the `r big(n_predictions)` predictions, `r big(n_status(what = "observed"))`
 file is `outputs/birds/birdnet_predictions_labelled.csv`: the 13 raw
 columns plus the two new ones, one row per prediction.
 
-### 11.3 Limits
+### 11.3 What `observed` means
+
+```{r observed-meaning}
+checkmate::assert_numeric(x = labelled$confidence, any.missing = FALSE)
+n_between <- sum(
+  labelled$observation_status == "observed" &
+    labelled$confidence < nj$boot_upper
+)
+```
+
+`observed` means that the model estimates the precision at or above the
+threshold to be `r birds_config$target_precision`. It is not a
+demonstrated figure. Among the validated nightjar clips at or above the
+threshold, `r nj$prec_at_glm_n_pos` of `r nj$prec_at_glm_n` were right,
+and the exact (Clopper-Pearson) lower bound of that precision is
+`r f2(nj$prec_at_glm_cp_lower)`, below the target. The fit and this check
+use the same validated clips. The threshold also sits in a sparse part of
+the validated scores (few clips between 0.55 and 0.70), so its position
+rests on the logistic shape more than on data. Using the upper end of the
+bootstrap interval (`r f2(nj$boot_upper)`) as the cutoff would relabel
+`r big(n_between)` of the `r big(n_status(what = "observed"))` observed
+clips (`r pct0(n_between / n_status(what = "observed"))`) as below
+threshold. I kept the point estimate because it is the method's output
+and one rule for all species is the decision (section 4.3); a
+cautious cutoff is a choice for the ornithologist.
+
+### 11.4 Limits
 
 Only the nightjar has observations. The oriole alone is
 `r pct0(sum(labelled$common_name == sp_oriole) / n_predictions)` of all

@@ -1,4 +1,4 @@
-BirdNET species thresholds: methods report (first draft)
+BirdNET species thresholds: methods report
 ================
 Alban Sagouis
 2026-10-08
@@ -20,9 +20,11 @@ Alban Sagouis
   something observed. The nightjar threshold rests on 33 wrong clips,
   almost all from two recorders and all from the evening, so its reach
   beyond those conditions is not established.
-- **What I ask of the experts.** Random validation clips across more
-  areas, periods and recorders for every species, and especially random
-  nightjar clips at night (section 9).
+- **What I ask of others.** From the experts, random validation clips
+  across more areas, periods and recorders for every species, and
+  especially random nightjar clips at night (section 9). From Tech, the
+  labelling step after every upload and a prediction ID stored with
+  every validation (see the handoff).
 
 ## 2. Data and how it was validated
 
@@ -91,8 +93,9 @@ nightjar threshold at three decimals (0.667 in all three cases).
 ### 3.2 What the confidence column is
 
 The confidence column is the bounded 0 to 1 BirdNET score. The BirdNET
-sensitivity setting is not recorded in the data, but it does not change
-the threshold in confidence units.
+sensitivity setting is not recorded in the data, so I do not know
+whether the threshold changes with it. The handoff therefore keys every
+threshold to the BirdNET version and settings it was fitted on.
 
 ## 4. Who gets a threshold
 
@@ -132,6 +135,15 @@ share of bootstrap fits that fail and the interval of the bootstrapped
 thresholds. Today the count and range gates already give the same
 answer, so a third gate would add a number to defend without a new
 result. I keep the numbers because refits will need them (section 8).
+
+The gate counts wrong clips because the logistic fit needs both
+outcomes. A species whose validated clips are all right, such as the
+oriole (150 of 150 right), gets no fit and no threshold, even though
+that is good evidence of high precision. The gate is a rule about what
+the model can fit, not a verdict on the species. I also checked
+separation, which makes a logistic slope unstable: 0 of the 3 species
+with both outcomes show it (the score ranges of right and wrong clips
+overlap, and glm raised no fitted-probability warning).
 
 ### 4.2 Question 2: does it generalise?
 
@@ -393,7 +405,22 @@ are below threshold and 19,304 (65.5%) have no threshold. The labelled
 file is `outputs/birds/birdnet_predictions_labelled.csv`: the 13 raw
 columns plus the two new ones, one row per prediction.
 
-### 11.3 Limits
+### 11.3 What `observed` means
+
+`observed` means that the model estimates the precision at or above the
+threshold to be 0.99. It is not a demonstrated figure. Among the
+validated nightjar clips at or above the threshold, 74 of 74 were right,
+and the exact (Clopper-Pearson) lower bound of that precision is 0.95,
+below the target. The fit and this check use the same validated clips.
+The threshold also sits in a sparse part of the validated scores (few
+clips between 0.55 and 0.70), so its position rests on the logistic
+shape more than on data. Using the upper end of the bootstrap interval
+(0.83) as the cutoff would relabel 827 of the 3,147 observed clips (26%)
+as below threshold. I kept the point estimate because it is the method’s
+output and one rule for all species is the decision (section 4.3); a
+cautious cutoff is a choice for the ornithologist.
+
+### 11.4 Limits
 
 Only the nightjar has observations. The oriole alone is 61% of all
 predictions and has none until it is validated more widely (section 9).

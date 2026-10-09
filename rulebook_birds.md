@@ -66,6 +66,22 @@ Each decision is also added as a comment on its GitHub issue.
 - **Confidence of exactly 1.0**: clamped (to 0.9999) before the logit. *(decided at setup)*
   qlogis(1) is infinite, and Wood & Kahl's code does not handle it.
 
+- **`observed` means model-estimated, not demonstrated**: the label says the precision at or above the
+  threshold is estimated at 0.99 by the fitted model. *(#4, review 2026-10-09)* Among the validated
+  nightjar clips at or above the threshold 74 of 74 were right, with an exact lower bound of 0.95,
+  below the target, and the fit and this check use the same clips. The threshold also sits in a
+  sparse part of the scores (few clips between 0.55 and 0.70). Using the upper end of the bootstrap
+  interval (0.83) as the cutoff would relabel 827 of the 3,147 observed clips. I kept the point
+  estimate, one rule for every species; a cautious cutoff is the ornithologist's choice.
+  Alternatives: gate on a lower bound of the observed precision, rejected because the brief asks for
+  the Wood & Kahl threshold and a different rule would not be comparable across species; label a
+  provisional tier, rejected as a special case.
+
+- **Separation is checked and absent**: for every species with both outcomes, the score ranges of the
+  right and the wrong clips overlap and glm raised no fitted-probability warning. *(#3, review
+  2026-10-09)* A species with only right clips (the oriole) has no fit and so no threshold, which
+  is a rule about what the model can fit, not a verdict on the species.
+
 # Robustness and environmental effects
 
 - **Do thresholds transfer across recorders, times and places?** Investigating whether a species
