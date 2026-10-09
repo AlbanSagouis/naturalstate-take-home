@@ -128,16 +128,16 @@ veg_check_flags <- function(flags, catalogue) {
 
 #' Counts per check and severity, for the console and for reconciliation
 veg_flag_counts <- function(flags, catalogue) {
-  counts <- dplyr::count(x = flags, check_id, name = "n_flags")
+  counts <- count(x = flags, check_id, name = "n_flags")
   catalogue |>
-    dplyr::select(check_id = id, level, severity) |>
-    dplyr::left_join(
+    select(check_id = id, level, severity) |>
+    left_join(
       y = counts,
       by = "check_id",
       relationship = "one-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::mutate(n_flags = dplyr::coalesce(n_flags, 0L))
+    mutate(n_flags = coalesce(n_flags, 0L))
 }
 
 #' The counts printed or written equal the flags table
@@ -161,19 +161,19 @@ veg_check_flags_reconcile <- function(flags, catalogue, counts) {
       "counts per check sum to {sum(counts$n_flags)}, flags have {nrow(flags)} rows."
     )
   }
-  by_severity <- dplyr::count(x = flags, severity)
-  from_counts <- dplyr::summarise(
+  by_severity <- count(x = flags, severity)
+  from_counts <- summarise(
     .data = counts,
     n = sum(n_flags),
     .by = severity
   )
-  merged <- dplyr::full_join(
+  merged <- full_join(
     x = by_severity,
     y = from_counts,
     by = "severity",
     relationship = "one-to-one"
   )
-  if (any(dplyr::coalesce(merged$n.x, 0L) != dplyr::coalesce(merged$n.y, 0L))) {
+  if (any(coalesce(merged$n.x, 0L) != coalesce(merged$n.y, 0L))) {
     cli::cli_abort("flags do not reconcile with the counts per severity.")
   }
   invisible(flags)

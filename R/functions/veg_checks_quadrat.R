@@ -3,8 +3,8 @@
 #' Per quadrat: number of selected-list records and of additional-repeat rows
 veg_quadrat_species_counts <- function(ctx) {
   sl <- ctx$species_long
-  dplyr::tibble(quadrat_key = ctx$quadrat$KEY) |>
-    dplyr::mutate(
+  tibble(quadrat_key = ctx$quadrat$KEY) |>
+    mutate(
       n_selected = vapply(
         X = quadrat_key,
         FUN = function(k) {
@@ -29,16 +29,16 @@ veg_quadrat_species_counts <- function(ctx) {
 
 veg_quadrat_view <- function(ctx) {
   q <- ctx$quadrat
-  dplyr::bind_cols(
+  bind_cols(
     veg_quadrat_typed(ctx = ctx),
-    dplyr::tibble(
+    tibble(
       herbs_present = q$herbs_present,
       count_species = veg_to_numeric(
         x = q[["herb_species-count_herb_species"]]
       ),
       additional_flag = q$additional_species_present
     ),
-    dplyr::select(
+    select(
       .data = veg_quadrat_species_counts(ctx = ctx),
       n_selected,
       n_additional
@@ -88,7 +88,7 @@ veg_chk_qua02 <- function(ctx, config = veg_config) {
     )
     veg_flag_rows(survey_key = k, value = paste(detail, collapse = "; "))
   })
-  dplyr::bind_rows(veg_flag_rows(), rows)
+  bind_rows(veg_flag_rows(), rows)
 }
 
 # QUA-03: the quadrat count recorded by the form differs from the number of quadrat rows.
@@ -232,19 +232,19 @@ veg_chk_con06 <- function(ctx, config = veg_config) {
 # The same species twice in one quadrat from the same source
 veg_chk_con07 <- function(ctx, config = veg_config) {
   sl <- ctx$species_long
-  sl$name_key <- dplyr::if_else(
+  sl$name_key <- if_else(
     condition = veg_is_blank(x = sl$species_uuid),
     true = veg_normalise_name(x = sl$species_name),
     false = sl$species_uuid
   )
   dup <- sl |>
-    dplyr::filter(!is.na(name_key)) |>
-    dplyr::mutate(
-      n_same = dplyr::n(),
+    filter(!is.na(name_key)) |>
+    mutate(
+      n_same = n(),
       .by = c(source, quadrat_key, name_key)
     ) |>
-    dplyr::filter(n_same > 1) |>
-    dplyr::distinct(source, quadrat_key, name_key, .keep_all = TRUE)
+    filter(n_same > 1) |>
+    distinct(source, quadrat_key, name_key, .keep_all = TRUE)
   veg_flag_rows(
     survey_key = dup$survey_key,
     quadrat_key = dup$quadrat_key,

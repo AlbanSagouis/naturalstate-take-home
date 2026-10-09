@@ -29,8 +29,8 @@ veg_field_issues <- function(
   rejected_keys = character(0)
 ) {
   checkmate::assert_character(x = rejected_keys, any.missing = FALSE)
-  numbers <- dplyr::distinct(
-    .data = dplyr::select(
+  numbers <- distinct(
+    .data = select(
       .data = quadrat,
       quadrat_key = KEY,
       quadrat = quadrat_number
@@ -38,31 +38,31 @@ veg_field_issues <- function(
     quadrat_key,
     .keep_all = TRUE
   )
-  spec <- dplyr::select(
+  spec <- select(
     .data = catalogue,
     check_id = id,
     what_to_check,
     sop_section = sop_reference
   )
   flags |>
-    dplyr::filter(
+    filter(
       is.element(el = severity, set = c("error", "warning")),
       !is.element(el = survey_key, set = rejected_keys)
     ) |>
-    dplyr::left_join(
+    left_join(
       y = spec,
       by = "check_id",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::left_join(
+    left_join(
       y = numbers,
       by = "quadrat_key",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::mutate(plot = plot_name, date = survey_date) |>
-    dplyr::arrange(
+    mutate(plot = plot_name, date = survey_date) |>
+    arrange(
       plot,
       date,
       survey_key,
@@ -70,5 +70,5 @@ veg_field_issues <- function(
       check_id,
       as.integer(quadrat)
     ) |>
-    dplyr::select(dplyr::all_of(veg_field_issue_columns))
+    select(all_of(veg_field_issue_columns))
 }

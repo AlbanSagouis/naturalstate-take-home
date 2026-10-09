@@ -10,7 +10,7 @@
 #' @return Tibble with `key` (values of column `key`), `position` (order within the cell) and `id`.
 veg_split_ids <- function(data, column, key = "KEY") {
   tokens <- veg_tokens(data = data, column = column, split = TRUE)
-  dplyr::tibble(
+  tibble(
     key = data[[key]][tokens$row],
     position = stats::ave(x = tokens$row, tokens$row, FUN = seq_along),
     id = tokens$token
@@ -29,7 +29,7 @@ veg_resolve_multi <- function(data, column, lookup, lookup_column) {
     x = tokens$token,
     table = lookup[["__id"]]
   )]
-  labels <- dplyr::if_else(
+  labels <- if_else(
     condition = is.na(labels),
     true = tokens$token,
     false = labels
@@ -68,7 +68,7 @@ veg_build_survey <- function(
   transport
 ) {
   plots <- vegplots |>
-    dplyr::select(
+    select(
       vegplots_id = `__id`,
       vegplots_plot_uuid = plot_uuid,
       vegplots_plot_status = plot_status,
@@ -78,7 +78,7 @@ veg_build_survey <- function(
       vegplots_survey_uuids = survey_uuids
     )
   registered <- register |>
-    dplyr::select(
+    select(
       register_KEY = KEY,
       register_plot_uuid = `plot_selection-selected_plot_uuid`,
       register_ReviewState = ReviewState,
@@ -86,56 +86,56 @@ veg_build_survey <- function(
       register_sample_status = `plot_selection-sample_status`
     )
   defs <- surveys |>
-    dplyr::select(
+    select(
       surveydef_id = `__id`,
       surveydef_label = label,
       surveydef_target_group = target_group
     )
   recorders <- project_team |>
-    dplyr::select(
+    select(
       recorder_id = `__id`,
       recorder_choice_name = choice_name,
       recorder_affiliation = affiliation
     )
   transports <- transport |>
-    dplyr::select(
+    select(
       transport_id = `__id`,
       transport_choice_name = choice_name,
       transport_choice_status = choice_status
     )
 
   out <- survey |>
-    dplyr::left_join(
+    left_join(
       y = plots,
-      by = dplyr::join_by(`plot_selection-selected_plot_uuid` == vegplots_id),
+      by = join_by(`plot_selection-selected_plot_uuid` == vegplots_id),
       relationship = "many-to-one",
       unmatched = "drop",
       keep = TRUE
     ) |>
-    dplyr::left_join(
+    left_join(
       y = registered,
-      by = dplyr::join_by(vegplots_plot_uuid == register_plot_uuid),
+      by = join_by(vegplots_plot_uuid == register_plot_uuid),
       relationship = "many-to-one",
       unmatched = "drop",
       keep = TRUE
     ) |>
-    dplyr::left_join(
+    left_join(
       y = defs,
-      by = dplyr::join_by(`survey_begin-selected_survey_uuid` == surveydef_id),
+      by = join_by(`survey_begin-selected_survey_uuid` == surveydef_id),
       relationship = "many-to-one",
       unmatched = "drop",
       keep = TRUE
     ) |>
-    dplyr::left_join(
+    left_join(
       y = recorders,
-      by = dplyr::join_by(`field_team_specifics-recorder_uuid` == recorder_id),
+      by = join_by(`field_team_specifics-recorder_uuid` == recorder_id),
       relationship = "many-to-one",
       unmatched = "drop",
       keep = TRUE
     ) |>
-    dplyr::left_join(
+    left_join(
       y = transports,
-      by = dplyr::join_by(
+      by = join_by(
         `field_team_specifics-selected_transport_type_uuid` == transport_id
       ),
       relationship = "many-to-one",
@@ -169,34 +169,34 @@ veg_build_survey <- function(
 #' @param additional Additional-species repeat, used to count child rows.
 veg_build_quadrat <- function(quadrat, survey, additional) {
   survey_keys <- survey |>
-    dplyr::select(
+    select(
       survey_KEY = KEY,
       survey_plot_name = `plot_selection-plot_name`,
       survey_plot_status = `plot_selection-get_plot_status`,
       survey_start_time = `survey_begin-start_time`,
       survey_ReviewState = ReviewState
     )
-  children <- dplyr::count(
+  children <- count(
     x = additional,
     PARENT_KEY,
     name = "n_additional_rows"
   )
   quadrat |>
-    dplyr::left_join(
+    left_join(
       y = survey_keys,
-      by = dplyr::join_by(PARENT_KEY == survey_KEY),
+      by = join_by(PARENT_KEY == survey_KEY),
       relationship = "many-to-one",
       unmatched = "drop",
       keep = TRUE
     ) |>
-    dplyr::left_join(
+    left_join(
       y = children,
-      by = dplyr::join_by(KEY == PARENT_KEY),
+      by = join_by(KEY == PARENT_KEY),
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::mutate(n_additional_rows = dplyr::coalesce(n_additional_rows, 0L)) |>
-    dplyr::select(-survey_KEY)
+    mutate(n_additional_rows = coalesce(n_additional_rows, 0L)) |>
+    select(-survey_KEY)
 }
 
 #' Long species table: one row per species record per quadrat
@@ -216,9 +216,9 @@ veg_build_species_long <- function(quadrat, additional, species) {
     column = "herb_species-selected_herb_species_uuids",
     key = "KEY"
   ) |>
-    dplyr::rename(quadrat_key = key, species_uuid = id) |>
-    dplyr::left_join(
-      y = dplyr::select(
+    rename(quadrat_key = key, species_uuid = id) |>
+    left_join(
+      y = select(
         .data = species,
         species_uuid = `__id`,
         species_name = label,
@@ -229,14 +229,14 @@ veg_build_species_long <- function(quadrat, additional, species) {
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::mutate(
+    mutate(
       source = "selected_list",
       record_id = paste0(quadrat_key, "#", position)
     ) |>
-    dplyr::select(-position)
+    select(-position)
 
   extra <- additional |>
-    dplyr::select(
+    select(
       record_id = KEY,
       quadrat_key = PARENT_KEY,
       species_entry_mode,
@@ -246,23 +246,23 @@ veg_build_species_long <- function(quadrat, additional, species) {
       new_missing_canonical,
       review_status
     ) |>
-    dplyr::mutate(
+    mutate(
       source = "additional_repeat",
-      species_uuid = dplyr::coalesce(select_reuse_unknown, select_reuse_missing)
+      species_uuid = coalesce(select_reuse_unknown, select_reuse_missing)
     ) |>
-    dplyr::select(-select_reuse_unknown, -select_reuse_missing)
+    select(-select_reuse_unknown, -select_reuse_missing)
 
   quadrat_keys <- quadrat |>
-    dplyr::select(quadrat_key = KEY, survey_key = PARENT_KEY, quadrat_number)
+    select(quadrat_key = KEY, survey_key = PARENT_KEY, quadrat_number)
 
-  dplyr::bind_rows(selected, extra) |>
-    dplyr::left_join(
+  bind_rows(selected, extra) |>
+    left_join(
       y = quadrat_keys,
       by = "quadrat_key",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::select(
+    select(
       source,
       record_id,
       survey_key,

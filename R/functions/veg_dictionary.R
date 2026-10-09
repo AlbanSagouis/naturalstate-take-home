@@ -70,12 +70,12 @@ veg_dictionary_table <- function(
   checkmate::assert_character(x = numeric_columns, any.missing = FALSE)
   meaning <- unname(notes[names(data)])
   raw <- is.na(meaning)
-  meaning[raw] <- dplyr::if_else(
+  meaning[raw] <- if_else(
     condition = is.element(el = names(data)[raw], set = numeric_columns),
     true = veg_dictionary_numeric,
     false = veg_dictionary_default
   )
-  dplyr::tibble(table = table, column = names(data), meaning = meaning)
+  tibble(table = table, column = names(data), meaning = meaning)
 }
 
 #' Write the dictionary as plain text
@@ -86,7 +86,7 @@ veg_dictionary_table <- function(
 veg_write_dictionary <- function(tables, path, numeric_columns = list()) {
   checkmate::assert_list(x = tables, names = "named")
   checkmate::assert_list(x = numeric_columns, names = "named")
-  rows <- dplyr::bind_rows(lapply(
+  rows <- bind_rows(lapply(
     X = names(tables),
     FUN = function(name) {
       veg_dictionary_table(

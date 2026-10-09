@@ -111,8 +111,8 @@ veg_chk_met04 <- function(ctx, config = veg_config) {
   bad <- !in_team | !in_project
   veg_flag_rows(
     survey_key = s$KEY[bad],
-    value = dplyr::coalesce(s$recorder_choice_name[bad], recorder[bad]),
-    detail = dplyr::if_else(
+    value = coalesce(s$recorder_choice_name[bad], recorder[bad]),
+    detail = if_else(
       condition = in_project[bad],
       true = "not in the survey team",
       false = "not in the project team list"

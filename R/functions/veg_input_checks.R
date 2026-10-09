@@ -33,7 +33,7 @@ veg_record_key <- function(data, key = "KEY") {
   if (!is.element(el = key, set = names(data))) {
     return(rows)
   }
-  dplyr::if_else(
+  if_else(
     condition = veg_is_blank(data[[key]]),
     true = rows,
     false = data[[key]]
@@ -55,14 +55,14 @@ veg_check_result <- function(
   value = character()
 ) {
   n_problem <- length(record_key)
-  findings <- dplyr::tibble(
+  findings <- tibble(
     table = rep(x = table, times = n_problem),
     check = rep(x = check, times = n_problem),
     record_key = as.character(record_key),
     column = rep_len(x = as.character(column), length.out = n_problem),
     value = rep_len(x = as.character(value), length.out = n_problem)
   )
-  summary <- dplyr::tibble(
+  summary <- tibble(
     table = table,
     check = check,
     n_checked = as.integer(n_checked),
@@ -77,8 +77,8 @@ veg_check_result <- function(
 veg_bind_checks <- function(results) {
   checkmate::assert_list(x = results, types = "list", min.len = 1)
   list(
-    integrity = dplyr::bind_rows(lapply(X = results, FUN = `[[`, "summary")),
-    findings = dplyr::bind_rows(lapply(X = results, FUN = `[[`, "findings"))
+    integrity = bind_rows(lapply(X = results, FUN = `[[`, "summary")),
+    findings = bind_rows(lapply(X = results, FUN = `[[`, "findings"))
   )
 }
 
@@ -99,11 +99,11 @@ veg_tokens <- function(
   } else {
     as.list(x)
   }
-  dplyr::tibble(
+  tibble(
     row = rep(x = seq_along(x), times = lengths(pieces)),
     token = unlist(x = pieces, use.names = FALSE) %||% character()
   ) |>
-    dplyr::filter(!veg_is_blank(x = token))
+    filter(!veg_is_blank(x = token))
 }
 
 #' Key values that are blank

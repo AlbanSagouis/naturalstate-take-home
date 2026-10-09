@@ -26,7 +26,7 @@ veg_chk_plt02 <- function(ctx, config = veg_config) {
   veg_flag_rows(
     survey_key = s$KEY[bad],
     value = s[["plot_selection-plot_name"]][bad],
-    detail = dplyr::if_else(
+    detail = if_else(
       condition = register_no[bad],
       true = "registration",
       false = "plot list"

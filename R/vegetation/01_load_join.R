@@ -4,7 +4,6 @@
 # and input-findings tables (flags are raised in issue #8).
 # Run from the project root: Rscript R/vegetation/01_load_join.R
 
-library(dplyr)
 library(checkmate)
 
 source(file = here::here("R", "vegetation", "config.R"))

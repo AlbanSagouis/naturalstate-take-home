@@ -24,8 +24,8 @@ veg_flag_id <- function(check_id, survey_key, quadrat_key, value) {
   text <- paste(
     check_id,
     survey_key,
-    dplyr::coalesce(quadrat_key, ""),
-    dplyr::coalesce(value, ""),
+    coalesce(quadrat_key, ""),
+    coalesce(value, ""),
     sep = "|"
   )
   vapply(
@@ -47,7 +47,7 @@ veg_run_one_check <- function(id, ctx, catalogue, config = veg_config) {
     x = names(out),
     must.include = c("survey_key", "quadrat_key", "value", "detail")
   )
-  dplyr::mutate(
+  mutate(
     .data = out,
     check_id = rep_len(x = id, length.out = nrow(out)),
     .before = 1
@@ -67,7 +67,7 @@ veg_build_flags <- function(
   catalogue = veg_check_catalogue(),
   config = veg_config
 ) {
-  raised <- dplyr::bind_rows(lapply(
+  raised <- bind_rows(lapply(
     X = catalogue$id,
     FUN = veg_run_one_check,
     ctx = ctx,
@@ -75,12 +75,12 @@ veg_build_flags <- function(
     config = config
   ))
   if (nrow(raised) == 0) {
-    return(dplyr::as_tibble(stats::setNames(
+    return(as_tibble(stats::setNames(
       object = lapply(X = veg_flag_columns, FUN = function(x) character()),
       nm = veg_flag_columns
     )))
   }
-  survey_info <- dplyr::tibble(
+  survey_info <- tibble(
     survey_key = ctx$survey$KEY,
     survey_order = seq_len(nrow(ctx$survey)),
     plot_name = ctx$survey[["plot_selection-plot_name"]],
@@ -91,13 +91,13 @@ veg_build_flags <- function(
     ),
     recorder = ctx$survey$recorder_choice_name
   ) |>
-    dplyr::distinct(survey_key, .keep_all = TRUE)
-  quadrat_info <- dplyr::tibble(
+    distinct(survey_key, .keep_all = TRUE)
+  quadrat_info <- tibble(
     quadrat_key = ctx$quadrat$KEY,
     quadrat_number = veg_to_numeric(x = ctx$quadrat$quadrat_number)
   ) |>
-    dplyr::distinct(quadrat_key, .keep_all = TRUE)
-  spec <- dplyr::select(
+    distinct(quadrat_key, .keep_all = TRUE)
+  spec <- select(
     .data = catalogue,
     check_id = id,
     level,
@@ -107,33 +107,33 @@ veg_build_flags <- function(
   )
 
   raised |>
-    dplyr::left_join(
+    left_join(
       y = spec,
       by = "check_id",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::left_join(
+    left_join(
       y = survey_info,
       by = "survey_key",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::left_join(
+    left_join(
       y = quadrat_info,
       by = "quadrat_key",
       relationship = "many-to-one",
       unmatched = "drop"
     ) |>
-    dplyr::distinct(
+    distinct(
       check_id,
       survey_key,
       quadrat_key,
       value,
       .keep_all = TRUE
     ) |>
-    dplyr::arrange(check_id, survey_order, quadrat_number, value) |>
-    dplyr::mutate(
+    arrange(check_id, survey_order, quadrat_number, value) |>
+    mutate(
       flag_id = veg_flag_id(
         check_id = check_id,
         survey_key = survey_key,
@@ -150,5 +150,5 @@ veg_build_flags <- function(
         )
       )
     ) |>
-    dplyr::select(dplyr::all_of(veg_flag_columns))
+    select(all_of(veg_flag_columns))
 }

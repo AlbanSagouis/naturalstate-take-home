@@ -75,15 +75,15 @@ veg_chk_str06 <- function(ctx, config = veg_config) {
 # surveyed once per survey; a second submission is a resubmission.
 veg_submission_groups <- function(ctx, config = veg_config) {
   s <- ctx$survey
-  dplyr::tibble(
+  tibble(
     survey_key = s$KEY,
     plot = s[["plot_selection-plot_name"]],
     survey_def = s[["survey_begin-selected_survey_uuid"]],
     rejected = !is.na(s$ReviewState) &
       s$ReviewState == config$review_state_rejected
   ) |>
-    dplyr::mutate(
-      n_submissions = dplyr::n(),
+    mutate(
+      n_submissions = n(),
       n_accepted = sum(!rejected),
       .by = c(plot, survey_def)
     )

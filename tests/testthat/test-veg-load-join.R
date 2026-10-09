@@ -56,7 +56,7 @@ test_that("survey join keeps a survey whose plot is unknown (NA, not dropped)", 
 
 test_that("survey join fails loudly when a lookup key is duplicated", {
   v <- make_veg()
-  v$vegplots <- dplyr::bind_rows(v$vegplots, v$vegplots)
+  v$vegplots <- bind_rows(v$vegplots, v$vegplots)
   expect_error(build_all(v), "must match at most 1 row")
 })
 
@@ -140,7 +140,7 @@ test_that("the real pipeline output reconciles with the raw files", {
 })
 
 test_that("the dictionary describes added columns, marks numeric columns and defaults raw ones", {
-  table <- dplyr::tibble(
+  table <- tibble(
     KEY = "a",
     `x-Latitude` = 1.5,
     `x-name` = "n",
@@ -165,7 +165,7 @@ test_that("the dictionary describes added columns, marks numeric columns and def
   expect_error(veg_dictionary_table(data = "not a table", table = "t"))
   # the findings columns have their own meaning, not the raw-column default
   findings <- veg_dictionary_table(
-    data = dplyr::tibble(
+    data = tibble(
       table = "t",
       check = "c",
       record_key = "k",

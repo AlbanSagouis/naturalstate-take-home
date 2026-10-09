@@ -21,7 +21,7 @@ veg_catalogue_row <- function(
   who_can_resolve,
   what_to_check
 ) {
-  dplyr::tibble(
+  tibble(
     id = id,
     level = level,
     severity = severity,
@@ -40,7 +40,7 @@ veg_catalogue_row <- function(
 
 veg_check_catalogue <- function() {
   r <- veg_catalogue_row
-  dplyr::bind_rows(
+  bind_rows(
     # ---- Structure -------------------------------------------------------------
     r(
       "STR-01",

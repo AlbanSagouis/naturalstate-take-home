@@ -239,7 +239,7 @@ test_that("a provisional unknown is flagged once per quadrat even if listed twic
   expect_identical(
     nrow(
       veg_build_flags(ctx = ctx, catalogue = catalogue) |>
-        dplyr::filter(check_id == "SPE-03")
+        filter(check_id == "SPE-03")
     ),
     1L
   )
@@ -291,7 +291,7 @@ test_that("an accuracy of exactly 5 m passes and 5.066 m fails", {
 test_that("flags carry the catalogue's level, severity and resolver and a filled message", {
   ctx <- failing_cases[["CON-03"]](make_clean_ctx())
   flags <- veg_build_flags(ctx = ctx, catalogue = catalogue) |>
-    dplyr::filter(check_id == "CON-03")
+    filter(check_id == "CON-03")
   expect_identical(flags$severity, "error")
   expect_identical(flags$level, "quadrat")
   expect_identical(flags$plot_name, "Plot_1")
@@ -358,17 +358,17 @@ test_that("a template is filled; a missing value becomes empty", {
 test_that("the catalogue is valid and a broken one is refused", {
   expect_no_error(veg_check_catalogue_valid(catalogue = catalogue))
   expect_error(veg_check_catalogue_valid(
-    catalogue = dplyr::mutate(
+    catalogue = mutate(
       catalogue,
       severity = replace(severity, 1, "fatal")
     )
   ))
   expect_error(veg_check_catalogue_valid(
-    catalogue = dplyr::mutate(catalogue, id = replace(id, 2, id[1]))
+    catalogue = mutate(catalogue, id = replace(id, 2, id[1]))
   ))
   expect_error(
     veg_check_catalogue_valid(
-      catalogue = dplyr::mutate(
+      catalogue = mutate(
         catalogue,
         message_template = replace(message_template, 1, "{nope}")
       )
@@ -377,7 +377,7 @@ test_that("the catalogue is valid and a broken one is refused", {
   )
   expect_error(
     veg_check_catalogue_valid(
-      catalogue = dplyr::mutate(
+      catalogue = mutate(
         catalogue,
         fun = replace(fun, 1, "veg_chk_missing")
       )
@@ -385,7 +385,7 @@ test_that("the catalogue is valid and a broken one is refused", {
     "no function"
   )
   expect_error(veg_check_catalogue_valid(
-    catalogue = dplyr::mutate(
+    catalogue = mutate(
       catalogue,
       who_can_resolve = replace(who_can_resolve, 1, "somebody")
     )
@@ -407,40 +407,40 @@ test_that("the flags checks accept a good table and refuse each kind of damage",
   )
   expect_no_error(veg_check_flags(flags = flags, catalogue = catalogue))
   expect_error(veg_check_flags(
-    flags = dplyr::select(flags, -message),
+    flags = select(flags, -message),
     catalogue = catalogue
   ))
   expect_error(veg_check_flags(
-    flags = dplyr::mutate(flags, severity = "fatal"),
+    flags = mutate(flags, severity = "fatal"),
     catalogue = catalogue
   ))
   expect_error(
     veg_check_flags(
-      flags = dplyr::mutate(flags, check_id = "ZZZ-99"),
+      flags = mutate(flags, check_id = "ZZZ-99"),
       catalogue = catalogue
     ),
     "not in the catalogue"
   )
   expect_error(
     veg_check_flags(
-      flags = dplyr::mutate(flags, severity = "info"),
+      flags = mutate(flags, severity = "info"),
       catalogue = catalogue
     ),
     "differs from the catalogue"
   )
   expect_error(
     veg_check_flags(
-      flags = dplyr::bind_rows(flags, dplyr::mutate(flags, flag_id = "F99999")),
+      flags = bind_rows(flags, mutate(flags, flag_id = "F99999")),
       catalogue = catalogue
     ),
     "duplicate"
   )
   expect_error(veg_check_flags(
-    flags = dplyr::mutate(flags, message = ""),
+    flags = mutate(flags, message = ""),
     catalogue = catalogue
   ))
   expect_error(veg_check_flags(
-    flags = dplyr::bind_rows(flags, flags),
+    flags = bind_rows(flags, flags),
     catalogue = catalogue
   ))
 })
@@ -457,7 +457,7 @@ test_that("reconciliation passes on matching counts and fails on any difference"
     counts = counts
   ))
   expect_identical(counts$n_flags[counts$check_id == "SPE-08"], 2L)
-  wrong <- dplyr::mutate(
+  wrong <- mutate(
     counts,
     n_flags = replace(n_flags, check_id == "SPE-08", 1L)
   )

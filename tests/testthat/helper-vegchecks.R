@@ -16,7 +16,7 @@ make_clean_ctx <- function() {
   side_m <- rep(x = c(2.5, -2.5), times = 10)
   deg <- 9.0e-6
   list(
-    survey = dplyr::tibble(
+    survey = tibble(
       KEY = clean_survey_key,
       ReviewState = "approved",
       SubmissionDate = "2026-05-27T12:00:00.000Z",
@@ -42,7 +42,7 @@ make_clean_ctx <- function() {
       register_is_plot_viable = "yes",
       recorder_choice_name = "Aa_Aa"
     ),
-    quadrat = dplyr::tibble(
+    quadrat = tibble(
       KEY = keys,
       PARENT_KEY = clean_survey_key,
       quadrat_number = as.character(1:20),
@@ -53,7 +53,7 @@ make_clean_ctx <- function() {
       `location_quadrat-Longitude` = as.character(37 + side_m * deg),
       `location_quadrat-Accuracy` = "3"
     ),
-    species_long = dplyr::tibble(
+    species_long = tibble(
       source = "selected_list",
       record_id = paste0(keys, "#1"),
       survey_key = clean_survey_key,
@@ -67,21 +67,21 @@ make_clean_ctx <- function() {
       new_missing_canonical = NA_character_,
       review_status = NA_character_
     ),
-    register = dplyr::tibble(
+    register = tibble(
       KEY = "uuid:r1",
       SubmissionDate = "2026-05-20T10:00:00.000Z",
       `survey_end-end_time` = "2026-05-20T11:00:00.000+02:00"
     ),
-    vegplots = dplyr::tibble(
+    vegplots = tibble(
       `__id` = "p1",
       geometry = "0.2 37 1000 3"
     ),
-    species = dplyr::tibble(
+    species = tibble(
       `__id` = c(uuid_a, uuid_b),
       label = c("Alpha beta", "Gamma delta")
     ),
-    species_extra = dplyr::tibble(`__id` = "u1", label = "herb_001"),
-    project_team = dplyr::tibble(
+    species_extra = tibble(`__id` = "u1", label = "herb_001"),
+    project_team = tibble(
       `__id` = c("t1", "t2"),
       choice_name = c("Aa_Aa", "Bb_Bb")
     )
@@ -100,9 +100,9 @@ add_species_row <- function(
 ) {
   key <- paste0(clean_survey_key, "/q", q)
   record_id <- record_id %||% paste0(key, "/a", nrow(ctx$species_long))
-  ctx$species_long <- dplyr::bind_rows(
+  ctx$species_long <- bind_rows(
     ctx$species_long,
-    dplyr::tibble(
+    tibble(
       source = "additional_repeat",
       record_id = record_id,
       survey_key = clean_survey_key,
@@ -125,7 +125,7 @@ add_survey_row <- function(ctx, key = "uuid:s2", ...) {
   for (name in names(extra)) {
     row[[name]] <- extra[[name]]
   }
-  ctx$survey <- dplyr::bind_rows(ctx$survey, row)
+  ctx$survey <- bind_rows(ctx$survey, row)
   ctx
 }
 
@@ -145,7 +145,7 @@ failing_cases <- list(
   },
   `STR-03` = function(ctx) add_survey_row(ctx = ctx, key = clean_survey_key),
   `STR-04` = function(ctx) {
-    ctx$quadrat <- dplyr::bind_rows(ctx$quadrat, ctx$quadrat[1, ])
+    ctx$quadrat <- bind_rows(ctx$quadrat, ctx$quadrat[1, ])
     ctx
   },
   `STR-05` = function(ctx) {
@@ -254,7 +254,7 @@ failing_cases <- list(
     ctx
   },
   `CON-07` = function(ctx) {
-    ctx$species_long <- dplyr::bind_rows(
+    ctx$species_long <- bind_rows(
       ctx$species_long,
       ctx$species_long[1, ]
     )

@@ -45,7 +45,7 @@ veg_chk_spa03 <- function(ctx, config = veg_config) {
 veg_chk_spa04 <- function(ctx, config = veg_config) {
   q <- veg_quadrat_typed(ctx = ctx)
   mid <- veg_plot_midpoints(ctx = ctx)
-  q <- dplyr::left_join(
+  q <- left_join(
     x = q,
     y = mid,
     by = "survey_key",
@@ -59,8 +59,8 @@ veg_chk_spa04 <- function(ctx, config = veg_config) {
     lat2 = q$mid_lat
   )
   tolerance <- veg_belt_reach_m(config = config) +
-    dplyr::coalesce(q$accuracy, config$accuracy_limit_m) +
-    dplyr::coalesce(q$mid_accuracy, config$accuracy_limit_m)
+    coalesce(q$accuracy, config$accuracy_limit_m) +
+    coalesce(q$mid_accuracy, config$accuracy_limit_m)
   bad <- !is.na(q$distance) & q$distance > tolerance
   veg_flag_rows(
     survey_key = q$survey_key[bad],
@@ -82,11 +82,11 @@ veg_chk_spa05 <- function(ctx, config = veg_config) {
     lat2 = mid$mid_lat
   )
   tolerance <- veg_belt_reach_m(config = config) +
-    dplyr::coalesce(
+    coalesce(
       veg_to_numeric(x = s[["survey_end-background_geopoint-Accuracy"]]),
       config$accuracy_limit_m
     ) +
-    dplyr::coalesce(mid$mid_accuracy, config$accuracy_limit_m)
+    coalesce(mid$mid_accuracy, config$accuracy_limit_m)
   bad <- !is.na(distance) & distance > tolerance
   veg_flag_rows(
     survey_key = s$KEY[bad],
@@ -122,8 +122,8 @@ veg_chk_spa06 <- function(ctx, config = veg_config) {
   tolerance <- sqrt(config$quadrat_spacing_m^2 + config$belt_width_m^2) +
     2 *
       sqrt(
-        dplyr::coalesce(q$accuracy[from], config$accuracy_limit_m)^2 +
-          dplyr::coalesce(q$accuracy[to], config$accuracy_limit_m)^2
+        coalesce(q$accuracy[from], config$accuracy_limit_m)^2 +
+          coalesce(q$accuracy[to], config$accuracy_limit_m)^2
       )
   bad <- consecutive & !is.na(distance) & distance > tolerance
   veg_flag_rows(

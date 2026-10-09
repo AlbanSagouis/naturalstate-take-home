@@ -15,7 +15,7 @@ veg_flag_rows <- function(
   detail = NA_character_
 ) {
   n <- length(survey_key)
-  dplyr::tibble(
+  tibble(
     survey_key = as.character(survey_key),
     quadrat_key = rep_len(x = as.character(quadrat_key), length.out = n),
     value = rep_len(x = as.character(value), length.out = n),
@@ -47,7 +47,7 @@ veg_parse_geometry <- function(x) {
     simplify = TRUE
   )
   parts[stringi::stri_isempty(str = parts)] <- NA_character_
-  dplyr::tibble(
+  tibble(
     lat = veg_to_numeric(x = parts[, 1]),
     lon = veg_to_numeric(x = parts[, 2]),
     accuracy = veg_to_numeric(x = parts[, 4])
@@ -95,7 +95,7 @@ veg_fill_template <- function(template, values) {
   checkmate::assert_list(x = values)
   out <- template
   for (name in names(values)) {
-    replacement <- dplyr::if_else(
+    replacement <- if_else(
       condition = is.na(values[[name]]),
       true = "",
       false = as.character(values[[name]])
@@ -127,7 +127,7 @@ veg_normalise_name <- function(x) {
 #' times and numbers. Pure function of `ctx$survey`.
 veg_survey_typed <- function(ctx) {
   s <- ctx$survey
-  dplyr::tibble(
+  tibble(
     survey_key = s$KEY,
     start = veg_parse_time(x = s[["survey_begin-start_time"]]),
     end = veg_parse_time(x = s[["survey_end-end_time"]]),
@@ -138,7 +138,7 @@ veg_survey_typed <- function(ctx) {
 #' Quadrat table with numeric geopoint, count and survey columns used by checks
 veg_quadrat_typed <- function(ctx) {
   q <- ctx$quadrat
-  dplyr::tibble(
+  tibble(
     quadrat_key = q$KEY,
     survey_key = q$PARENT_KEY,
     quadrat_number = veg_to_numeric(x = q$quadrat_number),
@@ -151,20 +151,20 @@ veg_quadrat_typed <- function(ctx) {
 #' Plot midpoint (vegplots geometry) for each survey row
 veg_plot_midpoints <- function(ctx) {
   geometry <- veg_parse_geometry(x = ctx$vegplots$geometry)
-  mid <- dplyr::bind_cols(
-    dplyr::select(.data = ctx$vegplots, plot_id = `__id`),
+  mid <- bind_cols(
+    select(.data = ctx$vegplots, plot_id = `__id`),
     geometry
   ) |>
-    dplyr::rename(mid_lat = lat, mid_lon = lon, mid_accuracy = accuracy) |>
-    dplyr::distinct(plot_id, .keep_all = TRUE)
+    rename(mid_lat = lat, mid_lon = lon, mid_accuracy = accuracy) |>
+    distinct(plot_id, .keep_all = TRUE)
   # A duplicated key is a data error that other checks flag; the first row is used here
   ctx$survey |>
-    dplyr::select(
+    select(
       survey_key = KEY,
       plot_id = `plot_selection-selected_plot_uuid`
     ) |>
-    dplyr::distinct(survey_key, .keep_all = TRUE) |>
-    dplyr::left_join(
+    distinct(survey_key, .keep_all = TRUE) |>
+    left_join(
       y = mid,
       by = "plot_id",
       relationship = "many-to-one",

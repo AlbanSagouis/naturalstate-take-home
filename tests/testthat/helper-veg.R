@@ -11,7 +11,7 @@ uuid_c <- "33333333-3333-4333-8333-333333333333"
 
 make_veg <- function() {
   list(
-    survey = dplyr::tibble(
+    survey = tibble(
       KEY = c("uuid:s1", "uuid:s2"),
       ReviewState = c(NA, "rejected"),
       `plot_selection-selected_plot_uuid` = c("p1", "p1"),
@@ -32,7 +32,7 @@ make_veg <- function() {
       `survey_end-background_geopoint-Longitude` = c("37.1", NA),
       `survey_end-background_geopoint-Accuracy` = c("3.2", NA)
     ),
-    quadrat = dplyr::tibble(
+    quadrat = tibble(
       KEY = c("uuid:s1/q1", "uuid:s1/q2", "uuid:s2/q1"),
       PARENT_KEY = c("uuid:s1", "uuid:s1", "uuid:s2"),
       quadrat_number = c("1", "2", "1"),
@@ -43,7 +43,7 @@ make_veg <- function() {
         uuid_c
       )
     ),
-    additional = dplyr::tibble(
+    additional = tibble(
       KEY = c("uuid:s1/q1/a1", "uuid:s1/q1/a2", "uuid:s2/q1/a1"),
       PARENT_KEY = c("uuid:s1/q1", "uuid:s1/q1", "uuid:s2/q1"),
       species_entry_mode = c("reuse_unknown", "new_missing", "reuse_missing"),
@@ -53,13 +53,13 @@ make_veg <- function() {
       new_missing_canonical = c(NA, "Some plant", NA),
       review_status = NA_character_
     ),
-    species = dplyr::tibble(
+    species = tibble(
       `__id` = c(uuid_a, uuid_b),
       label = c("Alpha beta", "Gamma delta"),
       scientific_name = c("Alpha beta L.", "Gamma delta L."),
       family = c("Poaceae", "Fabaceae")
     ),
-    vegplots = dplyr::tibble(
+    vegplots = tibble(
       `__id` = "p1",
       plot_uuid = "r1",
       plot_status = "primary",
@@ -68,25 +68,25 @@ make_veg <- function() {
       stratum_label = "savanna",
       survey_uuids = "d1"
     ),
-    register = dplyr::tibble(
+    register = tibble(
       KEY = "uuid:r1",
       ReviewState = NA_character_,
       `plot_selection-selected_plot_uuid` = "r1",
       `plot_selection-is_plot_viable` = "yes",
       `plot_selection-sample_status` = "primary"
     ),
-    surveys = dplyr::tibble(
+    surveys = tibble(
       `__id` = "d1",
       label = "savmon|herbs",
       target_group = "herbs"
     ),
-    project_team = dplyr::tibble(
+    project_team = tibble(
       `__id` = c("t1", "t2"),
       label = c("A", "B"),
       choice_name = c("Aa_Aa", "Bb_Bb"),
       affiliation = c("X", "Y")
     ),
-    transport = dplyr::tibble(
+    transport = tibble(
       `__id` = "x1",
       label = "Vehicle",
       choice_name = "vehicle",

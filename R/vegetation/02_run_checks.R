@@ -3,8 +3,6 @@
 # Inputs: data/processed/veg_*.csv (from 01_load_join.R) and the entity lists.
 # Run from the project root: Rscript R/vegetation/02_run_checks.R
 
-library(dplyr)
-
 source(file = here::here("R", "vegetation", "config.R"))
 paths <- veg_config$paths
 

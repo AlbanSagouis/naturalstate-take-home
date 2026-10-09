@@ -11,7 +11,7 @@ veg_additional_rows <- function(ctx) {
 # One flag per quadrat and value, whatever the number of identical rows
 veg_species_flags <- function(rows, value) {
   rows$value_out <- value
-  rows <- dplyr::distinct(
+  rows <- distinct(
     .data = rows,
     survey_key,
     quadrat_key,
@@ -63,7 +63,7 @@ veg_chk_spe03 <- function(ctx, config = veg_config) {
 # SPE-04: A species name that is a raw identifier (UUID) instead of a name.
 veg_chk_spe04 <- function(ctx, config = veg_config) {
   add <- veg_additional_rows(ctx = ctx)
-  text <- dplyr::coalesce(add$new_missing_canonical, add$species_name)
+  text <- coalesce(add$new_missing_canonical, add$species_name)
   is_uuid <- !is.na(text) &
     stringi::stri_detect_regex(
       str = stringi::stri_trim_both(str = text),
@@ -77,7 +77,7 @@ veg_chk_spe04 <- function(ctx, config = veg_config) {
 # label of a species picked from the species list
 veg_chk_spe05 <- function(ctx, config = veg_config) {
   sl <- ctx$species_long
-  text <- dplyr::if_else(
+  text <- if_else(
     condition = sl$source == "selected_list",
     true = sl$species_name,
     false = sl$new_missing_canonical
@@ -91,7 +91,7 @@ veg_misspelling_matches <- function(typed, listed, max_distance, max_relative) {
   typed_n <- veg_normalise_name(x = typed)
   listed_n <- unique(veg_normalise_name(x = listed))
   listed_n <- listed_n[!is.na(listed_n)]
-  out <- dplyr::tibble(
+  out <- tibble(
     typed = typed,
     suggestion = NA_character_,
     distance = NA_real_
@@ -139,7 +139,7 @@ veg_chk_spe06 <- function(ctx, config = veg_config) {
       nchar(typed_genus) >= config$misspelling_min_genus_length
     near_genus[close] <- listed_genera[best][close]
   }
-  suggestion <- dplyr::coalesce(whole, near_genus)
+  suggestion <- coalesce(whole, near_genus)
   # Show the suggestion the way the list writes it (capital first letter)
   suggestion <- paste0(
     stringi::stri_trans_toupper(
@@ -152,7 +152,7 @@ veg_chk_spe06 <- function(ctx, config = veg_config) {
   rows <- typed[bad, ]
   rows$value_out <- stringi::stri_trim_both(str = rows$new_missing_canonical)
   rows$detail_out <- suggestion[bad]
-  rows <- dplyr::distinct(
+  rows <- distinct(
     .data = rows,
     survey_key,
     quadrat_key,

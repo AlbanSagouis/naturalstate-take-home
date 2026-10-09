@@ -1,5 +1,5 @@
 test_that("veg_assert_columns aborts on a missing column and passes otherwise", {
-  d <- dplyr::tibble(a = 1, b = 2)
+  d <- tibble(a = 1, b = 2)
   expect_invisible(veg_assert_columns(
     data = d,
     required = c("a", "b"),
@@ -12,12 +12,12 @@ test_that("veg_assert_columns aborts on a missing column and passes otherwise", 
 })
 
 test_that("veg_check_missing flags blank and whitespace-only keys, not valid ones", {
-  d <- dplyr::tibble(KEY = c("a", NA, "  ", "b"))
+  d <- tibble(KEY = c("a", NA, "  ", "b"))
   r <- veg_check_missing(data = d, column = "KEY", table = "t")
   expect_equal(r$summary$n_problem, 2L)
   expect_equal(r$findings$record_key, c("row_2", "row_3"))
   ok <- veg_check_missing(
-    data = dplyr::tibble(KEY = c("a", "b")),
+    data = tibble(KEY = c("a", "b")),
     column = "KEY",
     table = "t"
   )
@@ -27,14 +27,14 @@ test_that("veg_check_missing flags blank and whitespace-only keys, not valid one
 
 test_that("veg_check_duplicated flags every copy of a duplicated key", {
   r <- veg_check_duplicated(
-    data = dplyr::tibble(KEY = c("a", "b", "a", NA, NA)),
+    data = tibble(KEY = c("a", "b", "a", NA, NA)),
     column = "KEY",
     table = "t"
   )
   expect_equal(r$summary$n_problem, 2L)
   expect_equal(r$summary$n_checked, 3L)
   ok <- veg_check_duplicated(
-    data = dplyr::tibble(KEY = c("a", "b")),
+    data = tibble(KEY = c("a", "b")),
     column = "KEY",
     table = "t"
   )
@@ -42,7 +42,7 @@ test_that("veg_check_duplicated flags every copy of a duplicated key", {
 })
 
 test_that("veg_check_in_lookup reports orphans and splits multi-id cells", {
-  d <- dplyr::tibble(KEY = c("1", "2", "3"), P = c("a", "zz", NA))
+  d <- tibble(KEY = c("1", "2", "3"), P = c("a", "zz", NA))
   r <- veg_check_in_lookup(
     data = d,
     column = "P",
@@ -53,7 +53,7 @@ test_that("veg_check_in_lookup reports orphans and splits multi-id cells", {
   expect_equal(r$findings$value, "zz")
   expect_equal(r$findings$record_key, "2")
   expect_equal(r$summary$n_checked, 2L)
-  multi <- dplyr::tibble(KEY = "1", P = "a zz<br/>b")
+  multi <- tibble(KEY = "1", P = "a zz<br/>b")
   rm <- veg_check_in_lookup(
     data = multi,
     column = "P",
@@ -68,14 +68,14 @@ test_that("veg_check_in_lookup reports orphans and splits multi-id cells", {
 
 test_that("veg_check_no_children finds parents without child rows", {
   r <- veg_check_no_children(
-    parent = dplyr::tibble(KEY = c("a", "b")),
+    parent = tibble(KEY = c("a", "b")),
     child_parent_values = c("a", "a"),
     table = "t",
     check = "c"
   )
   expect_equal(r$findings$record_key, "b")
   ok <- veg_check_no_children(
-    parent = dplyr::tibble(KEY = "a"),
+    parent = tibble(KEY = "a"),
     child_parent_values = "a",
     table = "t",
     check = "c"
@@ -84,7 +84,7 @@ test_that("veg_check_no_children finds parents without child rows", {
 })
 
 test_that("veg_check_flag_children catches both directions of disagreement", {
-  d <- dplyr::tibble(KEY = c("a", "b", "c"), flag = c("yes", "yes", "no"))
+  d <- tibble(KEY = c("a", "b", "c"), flag = c("yes", "yes", "no"))
   yes_no_rows <- veg_check_flag_children(
     data = d,
     flag_column = "flag",
@@ -106,7 +106,7 @@ test_that("veg_check_flag_children catches both directions of disagreement", {
 })
 
 test_that("veg_check_pattern flags malformed UUIDs", {
-  d <- dplyr::tibble(KEY = "1", U = paste(uuid_a, "not-a-uuid"))
+  d <- tibble(KEY = "1", U = paste(uuid_a, "not-a-uuid"))
   r <- veg_check_pattern(
     data = d,
     column = "U",
@@ -129,7 +129,7 @@ test_that("veg_check_pattern flags malformed UUIDs", {
 })
 
 test_that("veg_check_numeric flags non-numeric text and ignores blanks", {
-  d <- dplyr::tibble(KEY = c("a", "b", "c"), x = c("1.5", "abc", NA))
+  d <- tibble(KEY = c("a", "b", "c"), x = c("1.5", "abc", NA))
   r <- veg_check_numeric(data = d, columns = "x", table = "t")
   expect_equal(r$findings$record_key, "b")
   expect_equal(r$findings$column, "x")
@@ -139,7 +139,7 @@ test_that("veg_check_numeric flags non-numeric text and ignores blanks", {
 })
 
 test_that("veg_check_geopoint flags missing and out-of-range points", {
-  d <- dplyr::tibble(
+  d <- tibble(
     KEY = c("a", "b", "c"),
     lat = c("0.5", NA, "95"),
     lon = c("37", "37", "37")
@@ -155,7 +155,7 @@ test_that("veg_check_geopoint flags missing and out-of-range points", {
   expect_equal(r[[2]]$findings$record_key, "c")
   expect_equal(r[[1]]$summary$check, "gp_missing")
   # longitude has its own limit (180), and a point at the limits is valid
-  edge <- dplyr::tibble(
+  edge <- tibble(
     KEY = c("a", "b", "c"),
     lat = c("90", "0", "0"),
     lon = c("180", "181", "-181")
@@ -204,7 +204,7 @@ test_that("data errors in the synthetic tables never abort the checks", {
 
 test_that("id cells split on any whitespace, including non-breaking spaces and line breaks, and on <br/>", {
   nbsp <- "\u00a0"
-  data <- dplyr::tibble(
+  data <- tibble(
     KEY = c("a", "b", "c"),
     ids = c(paste0("u1", nbsp, "u2"), "u3\nu4\tu5", "u6<br/>u7")
   )
@@ -225,7 +225,7 @@ test_that("blank means NA, empty or whitespace only (non-breaking space included
     c(TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE)
   )
   expect_identical(
-    veg_record_key(data = dplyr::tibble(KEY = c("a", NA, " "))),
+    veg_record_key(data = tibble(KEY = c("a", NA, " "))),
     c("a", "row_2", "row_3")
   )
 })

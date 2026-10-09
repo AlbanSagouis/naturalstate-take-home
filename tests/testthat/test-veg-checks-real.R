@@ -66,9 +66,9 @@ test_that("the written catalogue is the catalogue in the code", {
     col_types = readr::cols(.default = "c")
   )
   expected <- veg_check_catalogue() |>
-    dplyr::select(-fun) |>
-    dplyr::mutate(dplyr::across(
-      .cols = dplyr::everything(),
+    select(-fun) |>
+    mutate(across(
+      .cols = everything(),
       .fns = as.character
     ))
   expect_identical(as.data.frame(written), as.data.frame(expected))
