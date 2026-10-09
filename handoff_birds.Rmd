@@ -1,0 +1,443 @@
+---
+title: "BirdNET observations: handoff to the Tech team"
+author: "Alban Sagouis"
+date: "2026-10-08"
+output:
+  github_document:
+    html_preview: false
+    md_extensions: -implicit_figures
+    pandoc_args: ["--markdown-headings=atx"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+
+source(file = here::here("R", "birds", "config.R"))
+paths <- birds_config$paths
+
+# Every number in this handoff is read from data/processed/, outputs/birds/ or
+# the config, written by R/birds/01 to 04. Nothing is typed by hand.
+evidence <- readr::read_csv(file = paths$evidence, show_col_types = FALSE)
+labelled <- readr::read_csv(
+  file = paths$labelled,
+  col_types = readr::cols(
+    begin_time_s = readr::col_double(),
+    confidence = readr::col_double(),
+    .default = readr::col_character()
+  )
+) |>
+  mutate(
+    # Stable key of the current file; the ML pipeline owns the real prediction_id
+    prediction_key = paste(begin_path, begin_time_s, species_code, sep = "|")
+  )
+
+f2 <- function(x) sprintf(fmt = "%.2f", x)
+f3 <- function(x) sprintf(fmt = "%.3f", x)
+f4 <- function(x) sprintf(fmt = "%.4f", x)
+f17 <- function(x) format(x, digits = 17, scientific = FALSE)
+pct <- function(x) sprintf(fmt = "%.0f%%", 100 * x)
+big <- function(x) format(x, big.mark = ",", trim = TRUE)
+
+n_pred <- nrow(labelled)
+n_species <- dplyr::n_distinct(labelled$species_code)
+n_key_dup <- sum(duplicated(labelled$prediction_key))
+n_observed <- sum(labelled$observation_status == "observed")
+
+# One row per species: code, status, cutoff and the labels it got
+species_map <- labelled |>
+  distinct(common_name, species_code)
+thr <- evidence |>
+  inner_join(
+    y = species_map,
+    by = join_by(commonName == common_name),
+    relationship = "one-to-one",
+    unmatched = c(x = "error", y = "error")
+  )
+status_counts <- labelled |>
+  count(species_code, observation_status) |>
+  tidyr::pivot_wider(
+    names_from = observation_status,
+    values_from = n,
+    values_fill = 0L
+  )
+species_tbl <- thr |>
+  inner_join(
+    y = status_counts,
+    by = join_by(species_code),
+    relationship = "one-to-one",
+    unmatched = c(x = "error", y = "error")
+  ) |>
+  mutate(
+    n_total = observed + below_threshold + no_threshold,
+    share_observed = observed / n_total
+  )
+
+nj <- thr |> filter(status == "fitted threshold")
+stopifnot(nrow(nj) == 1L)
+nj_cutoff <- nj$labelling_cutoff
+nj_code <- nj$species_code
+no_thr <- thr |> filter(status == "no_threshold")
+n_fitted <- sum(thr$status == "fitted threshold")
+n_none <- nrow(no_thr)
+cfg <- birds_config
+no_match_reason <- "no thresholds row for this species, BirdNET version and settings"
+versions <- unique(readr::read_csv(
+  file = paths$validations,
+  col_select = "vBirdNET",
+  show_col_types = FALSE
+)$vBirdNET)
+```
+
+## TL;DR
+
+- **What to build.** A labelling step that runs after the ML predictions are stored: it joins
+  every prediction to a thresholds table and writes one row per prediction to an observations
+  table. It is one SQL statement (`sql/birds_label_observations.sql`) and four tables
+  (`sql/birds_schema.sql`). No statistics run at runtime.
+- **The key rule.** `confidence >= cutoff` gives `observed`, a smaller confidence gives
+  `below_threshold`, and a missing cutoff or missing thresholds row gives `no_threshold`.
+  `observation` holds the species name only when the status is `observed`. In the current data
+  `r big(n_observed)` of `r big(n_pred)` predictions are observed.
+- **What Tech must do.** Create the tables, run the statement after every upload, store the
+  metadata listed below with every prediction, make the validation export carry the prediction
+  id (data-issue #5), and expose the monitoring numbers.
+- **What is not Tech's decision.** Thresholds. Biometrics inserts rows into the thresholds
+  table; Tech reads them and never edits one. `r n_none` of `r nrow(thr)` species currently
+  have no threshold, which is a normal state the pipeline handles, not an error.
+
+## Inputs and outputs
+
+### Inputs
+
+- `birdnet_predictions`: one row per BirdNET detection, written by the existing ML pipeline.
+  The current file has `r big(n_pred)` rows for `r n_species` species and the columns
+  `r paste(names(readr::read_csv(file = paths$predictions, n_max = 0, show_col_types = FALSE)), collapse = ", ")`.
+- `birdnet_thresholds`: one row per species, BirdNET version and settings, written by
+  Biometrics. Today `r n_fitted` row holds a fitted threshold and `r n_none` rows hold none.
+- `birdnet_validations`: expert verdicts on predictions. Used offline by Biometrics for refits;
+  Tech only stores them.
+
+### Outputs
+
+- `birdnet_observations`: one row per prediction with `observation_status`, `observation`,
+  the `threshold_id` used and a reason when there is no label.
+
+The table definitions are in the next section and in `sql/birds_schema.sql`.
+
+## The labelling contract
+
+### How observations are derived from predictions
+
+A prediction is a detection with a BirdNET confidence. It becomes an observation only if its
+confidence reaches the cutoff for that species, the BirdNET version and the settings that
+produced it. The cutoff is the confidence at which the validated clips of that species reach
+`r pct(cfg$target_precision)` precision. Biometrics estimates it offline; at runtime it is just a number in a table.
+
+The rule is applied in this order, and the first line that matches decides:
+
+1. No thresholds row matches the prediction's species, BirdNET version and settings, or the
+   matching row has `cutoff` NULL: `observation_status = 'no_threshold'`.
+2. `confidence >= cutoff`: `observation_status = 'observed'`.
+3. Otherwise: `observation_status = 'below_threshold'`.
+
+### The three statuses
+
+| `observation_status` | Fixed meaning | `observation` |
+|:---|:---|:---|
+| `observed` | The species is recorded as present at this time and place. | Species common name |
+| `below_threshold` | A cutoff exists and the confidence is under it. Not an observation. | NULL |
+| `no_threshold` | No cutoff exists for this species, version and settings. Not an observation, not a rejection. | NULL |
+
+Thresholds rows have a `status` of either `fitted threshold` (cutoff present) or
+`no_threshold` (cutoff NULL, with a `reason`). Tech does not interpret the reason; it copies it
+to `status_reason` in the observations table.
+
+### Worked example
+
+Real rows from the current data, labelled with the real cutoff for
+`r nj$commonName` (`r nj_code`): `r f4(nj_cutoff)`.
+
+```{r worked-example}
+below <- labelled |>
+  filter(species_code == nj_code, confidence < nj_cutoff) |>
+  slice_max(order_by = confidence, n = 1, with_ties = FALSE)
+above <- labelled |>
+  filter(species_code == nj_code, confidence >= nj_cutoff) |>
+  slice_min(order_by = confidence, n = 1, with_ties = FALSE)
+top <- labelled |>
+  filter(species_code == nj_code) |>
+  slice_max(order_by = confidence, n = 1, with_ties = FALSE)
+stopifnot(top$confidence == 1)
+others <- no_thr |>
+  pull(species_code) |>
+  lapply(FUN = function(code) {
+    labelled |>
+      filter(species_code == code) |>
+      slice_max(order_by = confidence, n = 1, with_ties = FALSE)
+  }) |>
+  bind_rows()
+example <- bind_rows(below, above, top, others) |>
+  transmute(
+    prediction_key,
+    species_code,
+    confidence,
+    cutoff = ifelse(
+      test = is.element(species_code, nj_code),
+      yes = f4(nj_cutoff),
+      no = "none"
+    ),
+    observation_status,
+    observation = ifelse(is.na(observation), "NULL", observation)
+  )
+knitr::kable(x = example, align = "llrrll")
+```
+
+Rows 1 and 2 are the nightjar predictions closest to the cutoff on either side. Row 3 is the
+highest nightjar confidence, which is exactly 1: no logit is computed at runtime, so 1.0 needs
+no special handling. The remaining rows are each other species' highest-confidence prediction.
+They still get `no_threshold`, however confident BirdNET is, because no threshold has been
+established for them.
+
+## Tables
+
+### Schema
+
+The definitions are in `sql/birds_schema.sql` (PostgreSQL 14 or later) and reproduced here.
+
+```{r schema-sql, results="asis"}
+cat("```sql\n")
+cat(readLines(con = here::here("sql", "birds_schema.sql")), sep = "\n")
+cat("\n```\n")
+```
+
+### Notes on the tables
+
+- `prediction_id` must be assigned by the ML pipeline and must be the same on every re-ingest
+  of the same detection. In the current file, recording path + start time + species code is a
+  unique key (`r n_key_dup` duplicates in `r big(n_pred)` rows) and can seed it.
+- `birdnet_thresholds` is insert-only for Biometrics. A refit adds rows; it never changes old
+  ones. The check constraint ties `cutoff` to `status` so a row cannot say "fitted" without a
+  number.
+- `settings` and `birdnet_settings` are compared for equality, so both must be written with the
+  same keys by the same code.
+
+## The runtime labelling step
+
+`sql/birds_label_observations.sql` is one `INSERT ... SELECT ... ON CONFLICT` statement.
+
+```{r label-sql, results="asis"}
+cat("```sql\n")
+cat(readLines(con = here::here("sql", "birds_label_observations.sql")), sep = "\n")
+cat("\n```\n")
+```
+
+- It picks the current thresholds row per species, BirdNET version and settings: the latest
+  `valid_from` that has already started.
+- It is idempotent. `prediction_id` is the primary key of `birdnet_observations`, so a rerun
+  with unchanged thresholds updates nothing (the `WHERE` on the conflict clause skips rows
+  whose `threshold_id` is unchanged).
+- After Biometrics inserts a new thresholds row, the next run relabels exactly the predictions
+  whose row changed and stamps the new `threshold_id`. Run it after every upload and after
+  every refit; no other trigger is needed.
+- It contains no statistics and no logit. Run it in one transaction.
+
+## Refitting
+
+Thresholds are refitted offline by Biometrics, never by the platform. A refit is triggered by
+new validations or by a new BirdNET version (current validations are from BirdNET
+`r paste(versions, collapse = ", ")`), is versioned by BirdNET version and settings, and ends
+with Biometrics inserting rows into `birdnet_thresholds`. Tech does nothing for a refit except
+rerun the labelling statement; the table never has rows edited or deleted by Tech.
+
+## Configuration Biometrics can change without code
+
+These values live in `R/birds/config.R`, are used only by the offline refit and are never read
+at runtime. Changing one produces new thresholds rows, not a code change on the platform.
+
+```{r config-table}
+config_tbl <- tibble::tibble(
+  value = c(
+    "target_precision",
+    "min_smaller_group",
+    "n_boot",
+    "ci_level"
+  ),
+  current = c(
+    cfg$target_precision,
+    cfg$min_smaller_group,
+    cfg$n_boot,
+    cfg$ci_level
+  ),
+  meaning = c(
+    "Precision the cutoff must reach on the validated clips",
+    "Fewest clips the smaller outcome group (right or wrong) may have for a fit",
+    "Bootstrap resamples for the interval and failure share",
+    "Level of the reported interval (`ci_low`, `ci_high`)"
+  )
+)
+knitr::kable(x = config_tbl)
+```
+
+The range gate (the fitted threshold must lie inside the validated score range) is applied to
+every species on every refit and has no switch; its result is the `in_range` column.
+
+## Edge cases and failure behaviour
+
+| Case | Behaviour |
+|:---|:---|
+| Species with no thresholds row | `no_threshold`, `threshold_id` NULL, reason says no row matches. Not an error. |
+| Matching row with `cutoff` NULL | `no_threshold`, `threshold_id` of that row, its `reason` copied. |
+| Confidence exactly 1.0 | Compared like any other value. No logit at runtime, so nothing can overflow. |
+| Confidence equals the cutoff | `observed` (the rule is `>=`). |
+| New BirdNET version or different settings | No row matches, so `no_threshold` with a reason. Labels return when Biometrics inserts rows for the new version. |
+| The statement is run twice | No change. |
+| Same detection ingested twice | The primary key on `prediction_id` rejects the duplicate; the ML pipeline should use `ON CONFLICT DO NOTHING`. |
+| Validation arrives late | It is stored and used at the next refit. Labels change only when a new thresholds row is inserted. |
+| Row with confidence outside 0 to 1 | Rejected by the check constraint on insert. Fix at the source. |
+
+## Metadata to store with every prediction
+
+Store device, recorder model, sample rate, BirdNET version and settings (including sensitivity
+and overlap), site, habitat and datetime, so that Biometrics can check at refit time whether a
+threshold holds across recorders, sites and times, which cannot be recovered afterwards. Tech
+only stores and exposes these fields; the analysis is not Tech's. The columns are in
+`birdnet_predictions`.
+
+## Monitoring
+
+### Per batch
+
+The share of predictions labelled `observed`, per species and batch. A sudden change usually
+means a new BirdNET version or settings (all `no_threshold`) or a broken upload.
+
+```sql
+SELECT p.project_id,
+       p.ingested_at::date AS batch_date,
+       p.species_code,
+       count(*) AS n_predictions,
+       avg((o.observation_status = 'observed')::int) AS share_observed,
+       avg((o.observation_status = 'no_threshold')::int) AS share_no_threshold
+FROM birdnet_observations AS o
+JOIN birdnet_predictions AS p USING (prediction_id)
+GROUP BY p.project_id, p.ingested_at::date, p.species_code;
+```
+
+Current values in the example data:
+
+```{r monitoring-table}
+species_tbl |>
+  transmute(
+    species_code,
+    status,
+    n_predictions = n_total,
+    observed,
+    share_observed = pct(share_observed)
+  ) |>
+  knitr::kable(align = "llrrr")
+```
+
+### Refit monitoring
+
+A Biometrics dashboard reads the diagnostic columns of `birdnet_thresholds`: `n_negative`,
+`n_positive`, `smaller_group`, `in_range`, `boot_share_failed`, `ci_low`, `ci_high`, `status`
+and `reason`. Tech exposes the table to the dashboard; nothing else is needed.
+
+## Upstream data issue
+
+Validations cannot be linked reliably to predictions today. The validation export must carry
+the prediction id (or the clip start position), a recording id shared with the predictions, and
+full-precision scores. Details and the evidence are in data-issue #5. This blocks
+`birdnet_validations.prediction_id`, so it matters for refits, not for runtime labelling.
+
+## Acceptance tests
+
+Each row is an input prediction and its expected output, derived from the real data and the
+real `r nj$commonName` cutoff (`r f17(nj_cutoff)`). Run with one thresholds row for the
+nightjar (`fitted threshold`, `birdnet_version` fixed, settings fixed) plus the rows for the
+other species in the table below.
+
+```{r acceptance-tests}
+other_thr <- no_thr |>
+  select(species_code, reason)
+tests <- bind_rows(
+  below |> mutate(case = "Real nightjar, just below the cutoff"),
+  above |> mutate(case = "Real nightjar, just above the cutoff"),
+  above |>
+    mutate(confidence = nj_cutoff, case = "Nightjar, confidence equal to the cutoff (constructed)"),
+  top |> mutate(case = "Real nightjar, confidence 1.0"),
+  others |>
+    mutate(case = paste("Real", common_name, "prediction, no threshold")),
+  top |>
+    mutate(
+      birdnet_version = "vNEW",
+      case = "Nightjar from an unseen BirdNET version (constructed)"
+    )
+) |>
+  mutate(
+    birdnet_version = coalesce(birdnet_version, versions[[1]]),
+    expected_status = case_when(
+      birdnet_version != versions[[1]] ~ "no_threshold",
+      is.element(species_code, nj_code) & confidence >= nj_cutoff ~ "observed",
+      is.element(species_code, nj_code) ~ "below_threshold",
+      .default = "no_threshold"
+    ),
+    expected_threshold = case_when(
+      birdnet_version != versions[[1]] ~ "NULL",
+      is.element(species_code, nj_code) ~ "nightjar row",
+      .default = "that species' row"
+    )
+  ) |>
+  left_join(
+    y = other_thr,
+    by = join_by(species_code),
+    relationship = "many-to-one",
+    unmatched = "drop"
+  ) |>
+  mutate(
+    expected_reason = case_when(
+      birdnet_version != versions[[1]] ~ no_match_reason,
+      is.element(species_code, nj_code) ~ "NULL",
+      .default = reason
+    ),
+    expected_observation = ifelse(
+      test = expected_status == "observed",
+      yes = common_name,
+      no = "NULL"
+    )
+  )
+tests |>
+  transmute(
+    n = row_number(),
+    case,
+    species_code,
+    confidence = ifelse(
+      test = confidence == nj_cutoff,
+      yes = f17(confidence),
+      no = as.character(confidence)
+    ),
+    expected_status,
+    expected_observation,
+    expected_threshold,
+    expected_reason
+  ) |>
+  knitr::kable(align = "rllrllll")
+```
+
+Also test: running the statement twice leaves `labelled_at` unchanged on every row; inserting
+a later `valid_from` row for the nightjar relabels only nightjar predictions and changes their
+`threshold_id`; a row with confidence 1.5 is rejected on insert.
+
+## Versioning
+
+- This document and both SQL files are versioned in git; a schema change is a migration that
+  only adds columns.
+- Thresholds are versioned by their rows: `birdnet_version`, `settings`, `fitted_at` and
+  `valid_from`. Old rows stay.
+- Every observation stores the `threshold_id` it was labelled with, so any label can be traced
+  to the exact row and the statement that produced it.
+
+## Stack
+
+Python 3.13, PostgreSQL, Redis and Docker Compose on Azure, as already in use; this handoff
+adds tables and one SQL statement and prescribes nothing about the deployment.
