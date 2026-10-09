@@ -41,9 +41,9 @@ test_that("flag counts per check equal the counts the code reports and the writt
     catalogue = catalogue,
     counts = counts
   ))
-  written <- readr::read_csv(
+  written <- read_csv(
     file = cfg$paths$flags_processed,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
   expect_identical(nrow(written), nrow(flags))
   expect_identical(
@@ -51,9 +51,9 @@ test_that("flag counts per check equal the counts the code reports and the writt
     counts$n_flags
   )
   # The tracked deliverable is the same table as the staged one
-  tracked <- readr::read_csv(
+  tracked <- read_csv(
     file = cfg$paths$flags,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
   expect_equal(as.data.frame(tracked), as.data.frame(written))
 })
@@ -61,9 +61,9 @@ test_that("flag counts per check equal the counts the code reports and the writt
 test_that("the written catalogue is the catalogue in the code", {
   skip_if_no_staged()
   cfg <- veg_config_for_tests()
-  written <- readr::read_csv(
+  written <- read_csv(
     file = cfg$paths$catalogue,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
   expected <- veg_check_catalogue() |>
     select(-fun) |>
@@ -84,9 +84,9 @@ test_that("the checks do not modify the real input tables", {
 
 test_that("the real data give the counts found when reading the data by hand", {
   skip_if_no_staged()
-  flags <- readr::read_csv(
+  flags <- read_csv(
     file = veg_config_for_tests()$paths$flags_processed,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
   n <- function(id) sum(flags$check_id == id)
   expect_identical(n("CON-04"), 10L) # additional_species_present = yes, no child rows
@@ -112,13 +112,13 @@ test_that("the field list of the real data is the error and warning flags", {
     fs::file_exists(cfg$paths$field_issues),
     "field issues not written"
   )
-  flags <- readr::read_csv(
+  flags <- read_csv(
     file = cfg$paths$flags,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
-  issues <- readr::read_csv(
+  issues <- read_csv(
     file = cfg$paths$field_issues,
-    col_types = readr::cols(.default = "c")
+    col_types = cols(.default = "c")
   )
   survey <- veg_read_csv(path = cfg$paths$survey)
   rejected <- veg_rejected_keys(survey = survey)

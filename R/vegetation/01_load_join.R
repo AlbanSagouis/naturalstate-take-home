@@ -360,11 +360,11 @@ for (i in seq_len(nrow(problems))) {
 
 # ---- Write ------------------------------------------------------------------
 fs::dir_create(path = fs::path_dir(paths$survey))
-readr::write_csv(x = veg_survey, file = paths$survey, na = "")
-readr::write_csv(x = veg_quadrat, file = paths$quadrat, na = "")
-readr::write_csv(x = veg_species_long, file = paths$species_long, na = "")
-readr::write_csv(x = integrity, file = paths$key_integrity, na = "")
-readr::write_csv(x = findings, file = paths$input_findings, na = "")
+write_csv(x = veg_survey, file = paths$survey, na = "")
+write_csv(x = veg_quadrat, file = paths$quadrat, na = "")
+write_csv(x = veg_species_long, file = paths$species_long, na = "")
+write_csv(x = integrity, file = paths$key_integrity, na = "")
+write_csv(x = findings, file = paths$input_findings, na = "")
 veg_write_dictionary(
   tables = list(
     veg_survey = veg_survey,

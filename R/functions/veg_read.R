@@ -24,9 +24,9 @@ veg_read_csv <- function(
     cli::cli_abort("{label}: file not found at {.path {path}}.")
   }
   out <- tryCatch(
-    expr = readr::read_csv(
+    expr = read_csv(
       file = path,
-      col_types = readr::cols(.default = readr::col_character()),
+      col_types = cols(.default = col_character()),
       na = "",
       trim_ws = FALSE,
       progress = FALSE

@@ -121,11 +121,11 @@ test_that("the real pipeline output reconciles with the raw files", {
   ))))
   n_raw <- function(path) nrow(veg_read_csv(path = path))
   expect_equal(
-    nrow(readr::read_csv(paths$survey, show_col_types = FALSE)),
+    nrow(read_csv(paths$survey, show_col_types = FALSE)),
     n_raw(paths$odk$survey)
   )
   expect_equal(
-    nrow(readr::read_csv(paths$quadrat, show_col_types = FALSE)),
+    nrow(read_csv(paths$quadrat, show_col_types = FALSE)),
     n_raw(paths$odk$quadrat)
   )
   n_selected <- nrow(veg_tokens(
@@ -134,7 +134,7 @@ test_that("the real pipeline output reconciles with the raw files", {
     split = TRUE
   ))
   expect_equal(
-    nrow(readr::read_csv(paths$species_long, show_col_types = FALSE)),
+    nrow(read_csv(paths$species_long, show_col_types = FALSE)),
     n_selected + n_raw(paths$odk$additional)
   )
 })

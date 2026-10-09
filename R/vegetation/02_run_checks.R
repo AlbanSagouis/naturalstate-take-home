@@ -50,14 +50,14 @@ cli::cli_alert_success("No flags from: {paste(silent, collapse = ', ')}")
 
 # ---- Write ------------------------------------------------------------------
 fs::dir_create(path = paths$outputs_dir)
-readr::write_csv(
+write_csv(
   x = select(.data = catalogue, -fun),
   file = paths$catalogue,
   na = ""
 )
-readr::write_csv(x = flags, file = paths$flags, na = "")
-readr::write_csv(x = flags, file = paths$flags_processed, na = "")
-readr::write_csv(
+write_csv(x = flags, file = paths$flags, na = "")
+write_csv(x = flags, file = paths$flags_processed, na = "")
+write_csv(
   x = counts,
   file = fs::path(veg_processed_dir, "veg_flag_counts.csv"),
   na = ""
@@ -70,7 +70,7 @@ issues <- veg_field_issues(
   quadrat = ctx$quadrat,
   rejected_keys = veg_rejected_keys(survey = ctx$survey)
 )
-readr::write_csv(x = issues, file = paths$field_issues, na = "")
+write_csv(x = issues, file = paths$field_issues, na = "")
 cli::cli_alert_success(
   "Wrote {nrow(flags)} flags and {nrow(issues)} error/warning rows for the field teams to {.path {paths$outputs_dir}}"
 )

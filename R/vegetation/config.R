@@ -2,8 +2,9 @@
 # Independent of the BirdNET config. Run all scripts from the project root
 # (here::here() finds it).
 
-# The function files sourced below call dplyr verbs without a prefix
+# The function files sourced below call dplyr and readr functions without a prefix
 library(dplyr)
+library(readr)
 
 veg_raw_dir <- here::here("data", "raw", "vegetation")
 veg_processed_dir <- here::here("data", "processed")
