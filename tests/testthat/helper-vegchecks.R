@@ -117,6 +117,33 @@ add_species_row <- function(
   ctx
 }
 
+# Add `n` more plots, one survey and 10 quadrats each. Plot i has 3 + i %% 3 taxa, each
+# found in every quadrat, so the plots differ a little in diversity (Shannon ln 3, ln 4, ln 5).
+add_plots <- function(ctx, n = 11) {
+  for (i in seq_len(n)) {
+    key <- paste0("uuid:p", i)
+    survey <- ctx$survey[1, ]
+    survey$KEY <- key
+    survey$`plot_selection-plot_name` <- paste0("Plot_", i + 1)
+    quadrats <- tibble(KEY = paste0(key, "/q", 1:10), PARENT_KEY = key)
+    k <- 3 + i %% 3
+    species <- tidyr::expand_grid(
+      quadrat_key = quadrats$KEY,
+      index = seq_len(k)
+    ) |>
+      mutate(
+        source = "selected_list",
+        record_id = paste0(quadrat_key, "#", index),
+        survey_key = key,
+        species_name = paste("Taxon", letters[index])
+      )
+    ctx$survey <- bind_rows(ctx$survey, survey)
+    ctx$quadrat <- bind_rows(ctx$quadrat, quadrats)
+    ctx$species_long <- bind_rows(ctx$species_long, species)
+  }
+  ctx
+}
+
 # A second submission for the same plot and survey
 add_survey_row <- function(ctx, key = "uuid:s2", ...) {
   row <- ctx$survey[1, ]
@@ -203,6 +230,14 @@ failing_cases <- list(
   },
   `PLT-08` = function(ctx) {
     ctx$register$SubmissionDate <- "2026-05-27T09:00:00.000Z"
+    ctx
+  },
+  # Eleven plots of a similar diversity, and a twelfth where one taxon is found everywhere
+  `PLT-09` = function(ctx) {
+    ctx <- add_plots(ctx = ctx, n = 11)
+    ctx$species_long$species_name[
+      ctx$species_long$survey_key == clean_survey_key
+    ] <- "Taxon a"
     ctx
   },
   `QUA-01` = function(ctx) {

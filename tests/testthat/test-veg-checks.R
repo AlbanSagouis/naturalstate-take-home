@@ -581,3 +581,53 @@ test_that("flag rows and geometry parsing handle empty and incomplete input", {
   expect_identical(geometry$accuracy, c(3.6, NA, NA))
   expect_identical(geometry$lat, c(0.2, 0.2, NA))
 })
+
+test_that("the plot diversity check flags only plots far from the others", {
+  ctx <- add_plots(ctx = make_clean_ctx(), n = 11)
+  # eleven plots of a similar diversity (the single-taxon clean plot left out): nothing is flagged
+  ctx$survey <- ctx$survey[ctx$survey$KEY != clean_survey_key, ]
+  ctx$species_long <- ctx$species_long[
+    ctx$species_long$survey_key != clean_survey_key,
+  ]
+  expect_equal(nrow(veg_chk_plt09(ctx = ctx)), 0L)
+  odd <- failing_cases[["PLT-09"]](make_clean_ctx())
+  out <- veg_chk_plt09(ctx = odd)
+  expect_equal(out$survey_key, clean_survey_key)
+  expect_equal(trimws(out$value), "0.00")
+  # a rejected submission is not counted: the odd plot disappears from the comparison
+  odd$survey$ReviewState[odd$survey$KEY == clean_survey_key] <- "rejected"
+  expect_equal(nrow(veg_chk_plt09(ctx = odd)), 0L)
+})
+
+test_that("Shannon outliers need enough plots, a spread, and a robust distance", {
+  shannon <- tibble(
+    plot_name = paste0("p", 1:12),
+    shannon = c(1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.2, 1.3, 1.4, 1.5, 0)
+  )
+  out <- veg_shannon_outliers(shannon = shannon)
+  expect_equal(out$plot_name, "p12")
+  expect_lt(out$z, -3)
+  expect_equal(out$median, stats::median(shannon$shannon))
+  # too few plots to say what is usual
+  expect_equal(nrow(veg_shannon_outliers(shannon = shannon[1:9, ])), 0L)
+  # plots that do not differ at all have no spread, so nothing is far from it
+  flat <- tibble(plot_name = paste0("p", 1:12), shannon = 1)
+  expect_equal(nrow(veg_shannon_outliers(shannon = flat)), 0L)
+  # a high outlier is flagged too
+  high <- shannon
+  high$shannon[12] <- 6
+  expect_equal(veg_shannon_outliers(shannon = high)$plot_name, "p12")
+})
+
+test_that("Shannon per plot uses quadrat frequencies of identified taxa only", {
+  records <- tibble(
+    plot_name = "a",
+    quadrat_key = c("q1", "q1", "q2", "q2", "q3"),
+    taxon = c("X", "Y", "X", NA, "X")
+  )
+  # X in 3 quadrats, Y in 1: p = 0.75 and 0.25; the unknown is ignored
+  expect_equal(
+    veg_plot_shannon(records = records)$shannon,
+    -(0.75 * log(0.75) + 0.25 * log(0.25))
+  )
+})

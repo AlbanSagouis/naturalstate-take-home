@@ -40,6 +40,11 @@ veg_config <- list(
   misspelling_max_relative = 0.15,
   # A genus one letter off a listed genus counts when it has at least this many letters
   misspelling_min_genus_length = 6,
+  # A plot is a diversity outlier when its Shannon index is more than this many (scaled)
+  # median absolute deviations from the median of the plots; at least this many plots
+  # are needed to say what is usual
+  shannon_outlier_mad = 3,
+  shannon_outlier_min_plots = 10L,
   # ODK ReviewState values that mean "looked at"
   review_state_approved = "approved",
   review_state_rejected = "rejected",

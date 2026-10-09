@@ -230,6 +230,17 @@ veg_check_catalogue <- function() {
       "data manager",
       "None needed if the registration form time is earlier; remind teams to upload registrations before surveys."
     ),
+    r(
+      "PLT-09",
+      "survey",
+      "info",
+      "The diversity of the plot is close to that of the other plots.",
+      "species records of the plot's submissions",
+      "ODK data rule",
+      "The diversity of this plot (Shannon {value}) is far from the median of the plots ({detail}).",
+      "data manager",
+      "Check that the species lists of this plot are complete and correctly entered; very low or very high diversity can come from a missing, repeated or misread list."
+    ),
     # ---- Quadrat completeness ----------------------------------------------------
     r(
       "QUA-01",
