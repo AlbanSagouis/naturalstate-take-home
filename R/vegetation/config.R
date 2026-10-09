@@ -62,12 +62,38 @@ veg_config <- list(
   accumulation_permutations = 100L,
   accumulation_tail_quadrats = 5L,
   seed = 20261008L,
+  # One theme for every figure in the vegetation part
+  theme = ggplot2::theme_light(base_size = 11),
   # ---- Map and dashboard (issue #10; reasons in rulebook.md) -----------------
   # Projected CRS for map distances: WGS 84 / UTM zone 37N, the zone of every plot
   # (the checks pick the zone from the points; a test asserts they agree)
   map_epsg = 32637L,
-  # Severity ranking, worst first; "none" = no flag
+  # Severity ranking, worst first; "none" = no flag. Colours are defined once here and
+  # used by the static maps and the dashboard. Dark red, amber and grey stay apart
+  # from the brand green ("none") in luminance, and every point has a dark outline.
   severity_levels = c("error", "warning", "info", "none"),
+  severity_colours = c(
+    error = "#A50F15",
+    warning = "#F2BC57",
+    info = "#8C8C8C",
+    none = "#7DBE98"
+  ),
+  # Plots drawn as transects in the zoomed figure (reason: see rulebook.md)
+  map_example_plots = c(
+    "SavMon_LW_Plot_01",
+    "SavMon_LW_Plot_05",
+    "SavMon_LW_Plot_11",
+    "SavMon_LW_Plot_16"
+  ),
+  # Natural State brand colours (take-home plan 4c), used by the dashboard and figures
+  # Softened from the brand values (#0D247A, #214097, #17B052, #56B37C); see rulebook.md
+  brand = c(
+    navy = "#4A5E9A",
+    blue = "#6F86BD",
+    green = "#7DBE98",
+    green_soft = "#A5D3B8",
+    grey = "#403F40"
+  ),
   # ---- Raw inputs -----------------------------------------------------------
   paths = list(
     odk = list(
@@ -136,7 +162,13 @@ veg_config <- list(
     ),
     totals = here::here("outputs", "vegetation", "summary_totals.csv"),
     exclusions = here::here("outputs", "vegetation", "excluded_records.csv"),
-    record_taxa = fs::path(veg_processed_dir, "veg_record_taxa.csv")
+    record_taxa = fs::path(veg_processed_dir, "veg_record_taxa.csv"),
+    # ---- Map and dashboard (issue #10) --------------------------------------
+    plot_locations = here::here("outputs", "vegetation", "plot_locations.csv"),
+    figure_map = here::here("figures", "veg_transect_map.png"),
+    figure_transects = here::here("figures", "veg_transect_zoom.png"),
+    dashboard_dir = here::here("dashboard"),
+    dashboard_html = here::here("docs", "index.html")
   ),
   # ---- Columns that must exist (structural: missing ones abort) -------------
   required_columns = list(

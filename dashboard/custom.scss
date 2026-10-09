@@ -1,0 +1,24 @@
+/*-- scss:rules --*/
+// Logo on a white bar: the navbar is white with navy text, so the logo needs no box of its own.
+.navbar {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #D9DCE6;
+}
+.navbar .navbar-brand,
+.navbar .navbar-title,
+.navbar .nav-link,
+.navbar .navbar-nav .nav-link {
+  color: #4A5E9A !important;
+}
+.navbar .nav-link.active,
+.navbar .nav-link:hover {
+  color: #33457A !important;
+  background-color: #EEF1F8 !important;
+}
+.navbar .navbar-nav .bi {
+  color: #4A5E9A !important;
+}
+.navbar .quarto-dashboard-link,
+.navbar .quarto-dashboard-link .bi {
+  color: #4A5E9A !important;
+}

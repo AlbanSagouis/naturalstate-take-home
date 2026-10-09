@@ -1,0 +1,22 @@
+# Natural State brand (mock-up), colours and logo from the take-home plan section 4c.
+# The blue, green and amber are softened from the brand values (#0D247A, #214097, #17B052).
+meta:
+  name: Natural State (mock-up)
+logo:
+  medium: ../assets/ns_logo.png
+color:
+  palette:
+    navy: "#4A5E9A"
+    blue: "#6F86BD"
+    green: "#7DBE98"
+    green-soft: "#A5D3B8"
+    grey: "#403F40"
+  background: "#FCFCFC"
+  foreground: "#0B0809"
+  primary: navy
+  secondary: blue
+  success: green
+  warning: "#F2BC57"
+# Typography is left out on purpose: embedding the Google font Inter added 13 MB to the page
+# (three copies of every unicode subset) and needs a network at render time. The page uses
+# the system sans-serif font; the original brand font is not identified anyway.

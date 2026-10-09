@@ -1,0 +1,253 @@
+---
+title: "Herbaceous vegetation: survey QA/QC"
+format:
+  dashboard:
+    embed-resources: true
+    theme: custom.scss
+    nav-buttons:
+      - icon: github
+        href: https://github.com/albansagouis/naturalstate-take-home
+brand: _brand.yml
+---
+
+```{r}
+#| label: setup
+#| include: false
+# The dashboard only reads the files the report is built from (outputs/vegetation/,
+# figures/). It runs no analysis.
+library(dplyr)
+options(knitr.kable.NA = "")
+source(file = here::here("R", "vegetation", "config.R"))
+paths <- veg_config$paths
+read_out <- function(path) readr::read_csv(file = path, show_col_types = FALSE)
+
+survey <- read_out(path = paths$survey_summary)
+plots <- read_out(path = paths$plot_summary)
+totals <- read_out(path = paths$totals) |> filter(version == "accepted")
+locations <- read_out(path = paths$plot_locations)
+flags <- read_out(path = paths$flags)
+effort <- read_out(path = paths$effort)
+curves <- read_out(path = paths$accumulation_curves)
+
+html_table <- function(data) {
+  htmltools::HTML(knitr::kable(x = data, format = "html", table.attr = 'class="table table-sm table-striped"'))
+}
+f1 <- function(x) sprintf(fmt = "%.1f", x)
+f2 <- function(x) sprintf(fmt = "%.2f", x)
+```
+
+# Summaries
+
+## Row {height=24%}
+
+```{r}
+#| label: box-surveys
+#| content: valuebox
+#| title: "Accepted surveys"
+list(icon = "clipboard-check", color = "primary", value = totals$n_surveys)
+```
+
+```{r}
+#| label: box-rejected
+#| content: valuebox
+#| title: "Rejected in ODK (not counted)"
+list(icon = "x-circle", color = "secondary", value = sum(survey$review_state == "rejected", na.rm = TRUE))
+```
+
+```{r}
+#| label: box-plots
+#| content: valuebox
+#| title: "Plots surveyed"
+list(icon = "geo-alt", color = "primary", value = paste(totals$n_plots_surveyed, "of", totals$n_plots_registered))
+```
+
+```{r}
+#| label: box-quadrats
+#| content: valuebox
+#| title: "Quadrats"
+list(icon = "grid-3x3", color = "primary", value = totals$n_quadrats)
+```
+
+```{r}
+#| label: box-taxa
+#| content: valuebox
+#| title: "Identified taxa"
+list(icon = "flower1", color = "success", value = totals$richness_all_plots)
+```
+
+```{r}
+#| label: box-flags
+#| content: valuebox
+#| title: "Flags E / W / I"
+list(icon = "flag", color = "warning", value = paste(totals$n_flags_error, totals$n_flags_warning, totals$n_flags_info, sep = "/"))
+```
+
+## Row {height=64%}
+
+### Column {.tabset}
+
+```{r}
+#| label: survey-summary
+#| title: "Survey summary"
+survey |>
+  mutate(plot = sub(pattern = "^SavMon_LW_", replacement = "", x = plot_name), duration_min = f1(duration_min)) |>
+  select(plot, status = plot_status, review = review_state, date = survey_date, recorder,
+    `duration (min)` = duration_min, n_quadrats, taxa = richness, unknowns = n_unknown_labels,
+    errors = n_error, warnings = n_warning, info = n_info) |>
+  html_table()
+```
+
+```{r}
+#| label: plot-summary
+#| title: "Plot summary"
+plots |>
+  mutate(plot = sub(pattern = "^SavMon_LW_", replacement = "", x = plot_name)) |>
+  select(plot, status = plot_status, surveyed, n_quadrats, taxa = gamma_richness,
+    unknowns = n_unknown_labels, errors = n_error, warnings = n_warning) |>
+  html_table()
+```
+
+## Row {height=12%}
+
+All numbers are the report's (`outputs/vegetation/`); the dashboard adds no analysis. The Natural State
+logo and colours are used for this mock-up only.
+
+# Map
+
+```{r}
+#| label: map
+#| title: "Plot locations coloured by worst flag severity"
+library(leaflet)
+drawn <- locations |>
+  filter(!is.na(lon), !is.na(lat)) |>
+  mutate(
+    label = sub(pattern = "^SavMon_LW_", replacement = "", x = plot_name),
+    colour = unname(veg_config$severity_colours[worst_severity]),
+    outline = if_else(condition = plot_status == "backup", true = veg_config$brand[["navy"]], false = "#0B0809"),
+    width = if_else(condition = plot_status == "backup", true = 5, false = 2),
+    popup = sprintf(
+      fmt = "<b>%s</b>%s<br>Worst flag: %s<br>%s errors, %s warnings, %s info<br>%s",
+      plot_name,
+      if_else(condition = plot_status == "backup", true = " (backup plot)", false = ""),
+      worst_severity, n_error, n_warning, n_info,
+      if_else(condition = surveyed, true = "Surveyed", false = "Registered, not surveyed")
+    )
+  )
+# fadeAnimation off: tiles appear at full strength at once (also in the screenshot)
+leaflet(data = drawn, options = leafletOptions(fadeAnimation = FALSE, zoomAnimation = FALSE)) |>
+  # Satellite imagery (Esri World Imagery) needs an internet connection and a page served
+  # over http(s); opened offline or from disk the markers still draw, without tiles.
+  addProviderTiles(provider = providers$Esri.WorldImagery) |>
+  addCircleMarkers(
+    lng = ~lon, lat = ~lat, radius = 9, weight = ~width, color = ~outline,
+    fillColor = ~colour, fillOpacity = 0.95, popup = ~popup, label = ~label
+  ) |>
+  addLegend(
+    position = "bottomright", title = "Worst flag<br>(navy rim = backup plot)",
+    colors = unname(veg_config$severity_colours[veg_config$severity_levels[1:3]]),
+    labels = c("Error", "Warning", "Info only"), opacity = 1
+  )
+```
+
+# Flags
+
+```{r}
+#| label: flags-table
+#| results: asis
+#| title: "Flags (filter by severity, check or plot)"
+# A small self-contained filter: DT and reactable are not installed.
+esc <- htmltools::htmlEscape
+options_of <- function(x) paste0('<option value="', esc(x), '">', esc(x), "</option>", collapse = "")
+rows <- flags |>
+  mutate(plot = sub(pattern = "^SavMon_LW_", replacement = "", x = plot_name)) |>
+  arrange(match(x = severity, table = veg_config$severity_levels), check_id, plot)
+body <- sprintf(
+  fmt = '<tr data-sev="%s" data-chk="%s" data-plot="%s"><td><span style="background:%s;color:%s;padding:1px 6px;border-radius:3px">%s</span></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+  rows$severity, rows$check_id, esc(rows$plot),
+  unname(veg_config$severity_colours[rows$severity]),
+  if_else(condition = rows$severity == "warning", true = "#0B0809", false = "#FFFFFF"),
+  rows$severity, rows$check_id, esc(rows$plot), rows$survey_date, esc(rows$message), esc(rows$who_can_resolve)
+)
+# A raw HTML block: pandoc must not parse the 960 table rows as Markdown (it did not finish)
+cat(
+  "```{=html}\n",
+  '<div style="display:flex;flex-direction:row !important;gap:16px;flex-wrap:wrap;align-items:center;justify-content:flex-start;flex:0 0 auto;padding:6px 0 10px">',
+  '<label>Severity <select id="f-sev"><option value="">all</option>', options_of(unique(rows$severity)), "</select></label>",
+  '<label>Check <select id="f-chk"><option value="">all</option>', options_of(sort(unique(rows$check_id))), "</select></label>",
+  '<label>Plot <select id="f-plot"><option value="">all</option>', options_of(sort(unique(rows$plot))), "</select></label>",
+  '<span id="f-count"></span></div>',
+  '<table class="table table-sm table-striped" id="flags-tbl"><thead><tr><th>Severity</th><th>Check</th><th>Plot</th><th>Date</th><th>Message</th><th>Who resolves</th></tr></thead><tbody>',
+  paste(body, collapse = ""), "</tbody></table>",
+  "<script>(function(){var s=['f-sev','f-chk','f-plot'].map(function(i){return document.getElementById(i)});",
+  "var rows=document.querySelectorAll('#flags-tbl tbody tr');",
+  "function run(){var n=0;rows.forEach(function(r){var ok=(!s[0].value||r.dataset.sev===s[0].value)&&(!s[1].value||r.dataset.chk===s[1].value)&&(!s[2].value||r.dataset.plot===s[2].value);r.style.display=ok?'':'none';if(ok)n++;});",
+  "document.getElementById('f-count').textContent=n+' of '+rows.length+' flags';}",
+  "s.forEach(function(e){e.addEventListener('change',run)});run();})();</script>",
+  "\n```\n",
+  sep = ""
+)
+```
+
+# Sampling effort
+
+## Row {height=22%}
+
+```{r}
+#| label: box-effort-full
+#| content: valuebox
+#| title: "Plots with 20 quadrats"
+list(icon = "grid-3x3", color = "primary", value = paste(sum(effort$n_quadrats >= veg_config$expected_quadrats_per_plot), "of", nrow(effort)))
+```
+
+```{r}
+#| label: box-effort-asymptote
+#| content: valuebox
+#| title: "Plots approaching an asymptote"
+list(icon = "graph-up", color = "success", value = paste(sum(effort$approaches_asymptote), "of", nrow(effort)))
+```
+
+```{r}
+#| label: box-effort-completeness
+#| content: valuebox
+#| title: "Median completeness (observed / Chao2)"
+list(icon = "percent", color = "warning", value = sprintf(fmt = "%.0f%%", 100 * median(effort$completeness)))
+```
+
+## Row {height=66%}
+
+```{r}
+#| label: effort-table
+#| title: "Effort per plot"
+effort |>
+  arrange(completeness) |>
+  mutate(
+    plot = sub(pattern = "^SavMon_LW_", replacement = "", x = plot_name),
+    `Chao2 (95% interval)` = sprintf(fmt = "%.1f (%.1f to %.1f)", estimated_richness, estimated_lcl, estimated_ucl),
+    completeness = sprintf(fmt = "%.0f%%", 100 * completeness),
+    coverage = f2(sample_coverage),
+    asymptote = if_else(condition = approaches_asymptote, true = "yes", false = "no")
+  ) |>
+  select(plot, quadrats = n_quadrats, observed = observed_richness, `Chao2 (95% interval)`,
+    completeness, coverage, asymptote) |>
+  html_table()
+```
+
+```{r}
+#| label: effort-curves
+#| title: "Species accumulation curves"
+library(ggplot2)
+curves |>
+  mutate(plot = sub(pattern = "^SavMon_LW_Plot_", replacement = "", x = plot_name)) |>
+  ggplot(mapping = aes(x = n_quadrats, y = richness)) +
+  geom_ribbon(mapping = aes(ymin = pmax(richness - sd, 0), ymax = richness + sd), fill = "#A5D3B8", alpha = 0.6) +
+  geom_line(colour = "#4A5E9A", linewidth = 0.6) +
+  facet_wrap(facets = vars(plot), ncol = 6) +
+  labs(x = "Quadrats added (random order)", y = "Identified taxa (mean)") +
+  veg_config$theme
+```
+
+## Row {height=12%}
+
+Completeness is observed taxa divided by the Chao2 estimate; a plot approaches an asymptote at completeness
+of at least `r veg_config$completeness_min` and sample coverage of at least `r veg_config$coverage_min`
+(provisional thresholds, to confirm with Natural State). The ribbon is one standard deviation over the random orderings.
