@@ -27,3 +27,7 @@ Desktop.ini
 
 # Derived data (regenerate with R/birds scripts)
 data/processed/
+
+# Working notes and test artefacts
+drafts/
+Rplots.pdf

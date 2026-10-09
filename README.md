@@ -10,7 +10,7 @@
 - **Key results.** Only the Abyssinian Nightjar gets a threshold (0.667, bootstrap interval 0.43 to
   0.83); the other three validated species get `no_threshold` because their validation data cannot
   support a fit. 3,147 of 29,491 predictions are `observed`. Vegetation: 59 checks raised 10
-  errors, 140 warnings and 757 info flags on the accepted submissions (11, 148 and 804 on all 32);
+  errors, 96 warnings and 801 info flags on the accepted submissions (11, 103 and 849 on all 32);
   plots hold 6 to 24 identified taxa. Sampling effort: all 30 plots have 20 quadrats, and 2 of 30
   (Plot_07, Plot_26) approach an asymptote.
 - **Key decisions.** One method and one precision target (0.99) for every species, so relative
@@ -40,6 +40,14 @@
 The reports are the stand-alone read; the dashboard is an extra.
 
 ## How to reproduce
+
+### Prerequisites
+
+R 4.6.1 (pinned in `renv.lock`), Quarto and pandoc (the dashboard and the reports), and network
+access for the satellite tiles of the dashboard map (offline, the map is blank). `air` is only
+needed for the pre-commit hook. `data/processed/` is git-ignored, so run the scripts in the order
+below (script 01 of each part first) before the tests that read the processed tables.
+The dashboard screenshots in `figures/veg_dashboard_*.png` were taken by hand from `docs/index.html`.
 
 ### Packages
 
@@ -200,6 +208,11 @@ did not choose the scientific approach, the severity of a check or what counts a
 threshold; those decisions are mine and are in [rulebook_birds.md](rulebook_birds.md) and
 [rulebook_vegetation.md](rulebook_vegetation.md), and every number in the
 reports is computed in the `.Rmd` code, not typed.
+
+### Time statement
+
+I spent about 7 hours on this project, above the 4 to 6 hour budget, because of a couple of
+interruptions and my excitement for the project.
 
 ## Licence
 
