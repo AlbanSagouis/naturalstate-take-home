@@ -6,8 +6,46 @@ veg_raw_dir <- here::here("data", "raw", "vegetation")
 veg_processed_dir <- here::here("data", "processed")
 
 veg_config <- list(
-  # ---- Input checks ---------------------------------------------------------
+  # ---- Rule values from the SOPs (used by later issues) ---------------------
+  # Geopoint accuracy (m) above which a point breaks the SOP
+  accuracy_limit_m = 5,
+  expected_quadrats_per_plot = 20L,
+  expected_quadrat_numbers = 1:20,
+  # Quadrat spacing along the transect (m)
+  quadrat_spacing_m = 5,
+  # Canonical species format: Genus_species (SOP)
+  # Genus capitalised, epithet lower case, joined by "_"; one hyphen allowed in
+  # either part (e.g. Pechuel-loeschea_leubnitziae); no authorship, no spaces.
+  species_name_regex = "^[A-Z][a-z]+(-[a-z]+)?_[a-z]+(-[a-z]+)?$",
+  # Provisional labels for unidentified plants, e.g. herb_002
+  unknown_label_regex = "^(herb|wood)_[0-9]+$",
   uuid_regex = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+  # ---- Check tolerances (issue #8; reasons in rulebook.md) -------------------
+  # Belt transect (SOP): 50 m long, 5 m wide; the midpoint is the plot centre
+  belt_length_m = 50,
+  belt_width_m = 5,
+  # Duration of a survey (start to end of form) outside this range is implausible
+  duration_min_minutes = 15,
+  duration_max_minutes = 180,
+  # A start time later than the submission time by more than this is a clock error
+  start_after_submission_tolerance_s = 60,
+  # Submitted more than this many hours after the form was finished
+  late_submission_hours = 12,
+  # Misspelling: at most this edit distance, and at most this share of the name length
+  misspelling_max_distance = 2,
+  misspelling_max_relative = 0.15,
+  # A genus one letter off a listed genus counts when it has at least this many letters
+  misspelling_min_genus_length = 6,
+  # ODK ReviewState values that mean "looked at"
+  review_state_approved = "approved",
+  review_state_rejected = "rejected",
+  review_state_issues = "hasIssues",
+  # ---- Map and dashboard (issue #10; reasons in rulebook.md) -----------------
+  # Projected CRS for map distances: WGS 84 / UTM zone 37N, the zone of every plot
+  # (the checks pick the zone from the points; a test asserts they agree)
+  map_epsg = 32637L,
+  # Severity ranking, worst first; "none" = no flag
+  severity_levels = c("error", "warning", "info", "none"),
   # ---- Raw inputs -----------------------------------------------------------
   paths = list(
     odk = list(
@@ -39,7 +77,18 @@ veg_config <- list(
     species_long = fs::path(veg_processed_dir, "veg_species_long.csv"),
     key_integrity = fs::path(veg_processed_dir, "veg_key_integrity.csv"),
     input_findings = fs::path(veg_processed_dir, "veg_input_findings.csv"),
-    dictionary = here::here("data", "definitions_vegetation_staged.txt")
+    dictionary = here::here("data", "definitions_vegetation_staged.txt"),
+    outputs_dir = here::here("outputs", "vegetation"),
+    flags_processed = fs::path(veg_processed_dir, "veg_flags.csv"),
+    flags = here::here("outputs", "vegetation", "flags.csv"),
+    catalogue = here::here("outputs", "vegetation", "check_catalogue.csv"),
+    field_issues = here::here(
+      "outputs",
+      "vegetation",
+      "issues_for_field_teams.csv"
+    ),
+    # ---- Summaries (issue #9) -----------------------------------------------
+    survey_summary = here::here("outputs", "vegetation", "survey_summary.csv")
   ),
   # ---- Columns that must exist (structural: missing ones abort) -------------
   required_columns = list(

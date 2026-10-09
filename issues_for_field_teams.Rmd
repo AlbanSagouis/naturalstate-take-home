@@ -1,0 +1,106 @@
+---
+title: "Herbaceous vegetation survey: errors and warnings for the field teams"
+author: "Alban Sagouis"
+date: "2026-10-08"
+output:
+  github_document:
+    html_preview: false
+    md_extensions: -implicit_figures
+    pandoc_args: ["--markdown-headings=atx"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+
+source(file = here::here("R", "vegetation", "config.R"))
+
+# Every number comes from the two CSV files written by R/vegetation/02_run_checks.R
+issues <- readr::read_csv(
+  file = veg_config$paths$field_issues,
+  col_types = readr::cols(.default = readr::col_character())
+)
+flags <- readr::read_csv(
+  file = veg_config$paths$flags,
+  col_types = readr::cols(.default = readr::col_character())
+)
+catalogue <- readr::read_csv(
+  file = veg_config$paths$catalogue,
+  col_types = readr::cols(.default = readr::col_character())
+)
+
+n_plots <- n_distinct(issues$plot)
+n_submissions <- n_distinct(issues$survey_key)
+# Submissions come from the staged survey table (written by R/vegetation/01_load_join.R)
+survey <- readr::read_csv(
+  file = veg_config$paths$survey,
+  col_types = readr::cols(.default = readr::col_character())
+)
+rejected_keys <- veg_rejected_keys(survey = survey)
+n_rejected <- length(rejected_keys)
+n_surveys <- nrow(survey) - n_rejected
+n_rejected_issues <- sum(
+  is.element(flags$severity, c("error", "warning")) & is.element(flags$survey_key, rejected_keys)
+)
+n_error <- sum(issues$severity == "error")
+n_warning <- sum(issues$severity == "warning")
+n_field <- sum(issues$who_can_resolve == "field team")
+n_manager <- sum(issues$who_can_resolve == "data manager")
+n_tech <- sum(issues$who_can_resolve == "Tech")
+n_errors_subs <- n_distinct(issues$survey_key[issues$severity == "error"])
+n_info <- sum(flags$severity == "info")
+```
+
+## TL;DR
+
+- This list has `r nrow(issues)` items in `r n_submissions` of the `r n_surveys` accepted submissions
+  (`r n_plots` plots): `r n_error` errors and `r n_warning` warnings. Nothing was changed or removed in the data.
+- `r n_rejected` submissions were rejected in ODK and are not on this list; their `r n_rejected_issues`
+  errors and warnings stay in `outputs/vegetation/flags.csv`.
+- Errors break a rule of the survey protocol (SOP) or contradict other answers. Warnings need a look and
+  may be fine.
+- `r n_field` items can be resolved by the field team, `r n_manager` by the data manager and `r n_tech`
+  by the Tech team (they come from the form, not from the field).
+- The most common field problems: species names typed with a space instead of an underscore
+  (`r sum(issues$check_id == "SPE-02")` names), quadrat locations far from the plot midpoint
+  (`r sum(issues$check_id == "SPA-04")` quadrats), and extra species announced but not recorded
+  (`r sum(issues$check_id == "CON-04")` quadrats).
+- `r n_info` further notes (for example species still to be identified) are in `outputs/vegetation/flags.csv`
+  and are not repeated here.
+
+## How to read this list
+
+Each plot has one section and each submission (one visit) one sub-section. Quadrat numbers are the numbers
+in the form. "Check" lines say what to look at. Section numbers refer to the Herbaceous Vegetation Surveys
+SOP and the Vegetation Plot Registration SOP (version 2026.1). The full list as a table is
+`outputs/vegetation/issues_for_field_teams.csv`; the rules behind each item are in
+`outputs/vegetation/check_catalogue.csv`.
+
+```{r sections, results='asis'}
+# One bullet per issue, then what to check and the SOP sections once per submission
+cat_submission <- function(rows) {
+  rows <- arrange(.data = rows, match(x = severity, table = c("error", "warning")), check_id, as.integer(quadrat))
+  cat(sprintf(
+    "### %s, recorded by %s (%d item%s)\n\n",
+    rows$date[1],
+    ifelse(test = is.na(rows$recorder[1]), yes = "unknown recorder", no = rows$recorder[1]),
+    nrow(rows),
+    ifelse(test = nrow(rows) == 1, yes = "", no = "s")
+  ))
+  label <- ifelse(test = rows$severity == "error", yes = "Error", no = "Warning")
+  cat(paste0("- ", label, ": ", rows$message, " (", rows$who_can_resolve, ")"), sep = "\n")
+  cat("\n")
+  cat("Check:\n\n")
+  cat(paste0("- ", unique(rows$what_to_check)), sep = "\n")
+  cat("\n")
+  cat("SOP: ", paste(unique(rows$sop_section), collapse = "; "), "\n\n", sep = "")
+}
+
+for (plot in sort(unique(issues$plot))) {
+  plot_rows <- filter(.data = issues, plot == .env$plot)
+  cat(sprintf("## %s\n\n", plot))
+  for (key in unique(plot_rows$survey_key)) {
+    cat_submission(rows = filter(.data = plot_rows, survey_key == .env$key))
+  }
+}
+```
