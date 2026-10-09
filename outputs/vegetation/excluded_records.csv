@@ -1,0 +1,13 @@
+level,survey_key,quadrat_key,reason
+quadrat,uuid:938c15e5-c942-49aa-8e6d-9633189870ff,uuid:938c15e5-c942-49aa-8e6d-9633189870ff/observations/quadrat_repeat[2],error_flag_quadrat
+quadrat,uuid:54452130-d92e-4996-a0d7-9401811b9ed7,uuid:54452130-d92e-4996-a0d7-9401811b9ed7/observations/quadrat_repeat[17],error_flag_quadrat
+quadrat,uuid:c4ea3469-7e1c-474a-9ce6-fc1926e590e2,uuid:c4ea3469-7e1c-474a-9ce6-fc1926e590e2/observations/quadrat_repeat[6],error_flag_quadrat
+quadrat,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f/observations/quadrat_repeat[5],error_flag_quadrat
+quadrat,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f/observations/quadrat_repeat[13],error_flag_quadrat
+quadrat,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f,uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f/observations/quadrat_repeat[14],error_flag_quadrat
+quadrat,uuid:9ec95900-d4e8-4825-be75-07834b98cc6c,uuid:9ec95900-d4e8-4825-be75-07834b98cc6c/observations/quadrat_repeat[20],error_flag_quadrat
+quadrat,uuid:fdf5f121-0a7f-4769-85bb-4717e0361eb4,uuid:fdf5f121-0a7f-4769-85bb-4717e0361eb4/observations/quadrat_repeat[8],error_flag_quadrat
+quadrat,uuid:3865525f-1d45-40fc-83ca-7e30fafe6b54,uuid:3865525f-1d45-40fc-83ca-7e30fafe6b54/observations/quadrat_repeat[9],error_flag_quadrat
+quadrat,uuid:c17516f9-53dd-4fda-b4e6-e257068198b9,uuid:c17516f9-53dd-4fda-b4e6-e257068198b9/observations/quadrat_repeat[14],error_flag_quadrat
+survey,uuid:c6cc7231-7af6-4bc5-b281-565c53f21763,,rejected_submission
+survey,uuid:81e3bc36-700f-465d-a1aa-48ebed04a78c,,rejected_submission

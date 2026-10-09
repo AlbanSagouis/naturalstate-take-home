@@ -49,6 +49,19 @@ veg_config <- list(
   review_state_approved = "approved",
   review_state_rejected = "rejected",
   review_state_issues = "hasIssues",
+  # ---- Summaries (issue #9; reasons in rulebook.md) ---------------------------
+  # Severity whose flagged records the sensitivity version leaves out
+  excluded_severity = "error",
+  # Sampling effort: a plot "approaches an asymptote" when the observed richness is at
+  # least completeness_min of the Chao2 estimate and the sample coverage is at least
+  # coverage_min (provisional, to confirm with Natural State)
+  completeness_min = 0.9,
+  coverage_min = 0.95,
+  # Accumulation curves: random orderings of the quadrats, a fixed seed, and the number of
+  # last quadrats whose gain in taxa is reported
+  accumulation_permutations = 100L,
+  accumulation_tail_quadrats = 5L,
+  seed = 20261008L,
   # ---- Map and dashboard (issue #10; reasons in rulebook.md) -----------------
   # Projected CRS for map distances: WGS 84 / UTM zone 37N, the zone of every plot
   # (the checks pick the zone from the points; a test asserts they agree)
@@ -97,7 +110,33 @@ veg_config <- list(
       "issues_for_field_teams.csv"
     ),
     # ---- Summaries (issue #9) -----------------------------------------------
-    survey_summary = here::here("outputs", "vegetation", "survey_summary.csv")
+    survey_summary = here::here("outputs", "vegetation", "survey_summary.csv"),
+    survey_summary_sens = here::here(
+      "outputs",
+      "vegetation",
+      "survey_summary_excl_errors.csv"
+    ),
+    plot_summary = here::here("outputs", "vegetation", "plot_summary.csv"),
+    effort = here::here("outputs", "vegetation", "sampling_effort.csv"),
+    effort_sens = here::here(
+      "outputs",
+      "vegetation",
+      "sampling_effort_excl_errors.csv"
+    ),
+    accumulation_curves = here::here(
+      "outputs",
+      "vegetation",
+      "accumulation_curves.csv"
+    ),
+    figure_accumulation = here::here("figures", "veg_accumulation.png"),
+    plot_summary_sens = here::here(
+      "outputs",
+      "vegetation",
+      "plot_summary_excl_errors.csv"
+    ),
+    totals = here::here("outputs", "vegetation", "summary_totals.csv"),
+    exclusions = here::here("outputs", "vegetation", "excluded_records.csv"),
+    record_taxa = fs::path(veg_processed_dir, "veg_record_taxa.csv")
   ),
   # ---- Columns that must exist (structural: missing ones abort) -------------
   required_columns = list(
