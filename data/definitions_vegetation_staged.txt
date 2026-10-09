@@ -1,0 +1,131 @@
+Staged vegetation tables (written by R/vegetation/01_load_join.R)
+Format: column | meaning (source column = the column itself unless stated)
+Raw ODK columns keep their exported names and values (text as received), except the columns
+marked as read as numbers.
+
+## veg_survey (32 rows)
+SubmissionDate | As exported by ODK Central, unchanged
+note_overview | As exported by ODK Central, unchanged
+field_team_specifics-selected_transport_type_uuid | As exported by ODK Central, unchanged
+field_team_specifics-transport_type_label | As exported by ODK Central, unchanged
+field_team_specifics-selected_project_team_uuid_multi | As exported by ODK Central, unchanged
+field_team_specifics-recorder_uuid | As exported by ODK Central, unchanged
+field_team_specifics-recorder_label | As exported by ODK Central, unchanged
+survey_begin-start_time | As exported by ODK Central, unchanged
+survey_begin-survey_year | As exported by ODK Central, unchanged
+survey_begin-selected_survey_uuid | As exported by ODK Central, unchanged
+survey_begin-get_survey_label | As exported by ODK Central, unchanged
+survey_begin-project_label | As exported by ODK Central, unchanged
+survey_begin-project_abbr | As exported by ODK Central, unchanged
+survey_begin-area_label | As exported by ODK Central, unchanged
+survey_begin-baseline_year | As exported by ODK Central, unchanged
+survey_begin-replicate_index | As exported by ODK Central, unchanged
+survey_begin-replicate | As exported by ODK Central, unchanged
+survey_begin-survey_type | As exported by ODK Central, unchanged
+survey_begin-target_group | As exported by ODK Central, unchanged
+survey_begin-note_parent_labels | As exported by ODK Central, unchanged
+plot_selection-selected_plot_uuid | Plot chosen in the form; matches vegplots.csv __id, not its plot_uuid column
+plot_selection-plot_name | As exported by ODK Central, unchanged
+plot_selection-get_plot_status | Plot status read by the form (primary or backup); plot_selection-plot_status is blank in the export
+plot_selection-plot_status | As exported by ODK Central, unchanged
+plot_selection-quadrat_note | As exported by ODK Central, unchanged
+observations-quadrat_repeat_count | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+base_active_herb_count | As exported by ODK Central, unchanged
+new_unknown_index_list | As exported by ODK Central, unchanged
+new_missing_index_list | As exported by ODK Central, unchanged
+survey_end-quadrats_with_species | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+survey_end-quadrat_check_heading | As exported by ODK Central, unchanged
+survey_end-quadrat_check | As exported by ODK Central, unchanged
+survey_end-background_geopoint-Latitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+survey_end-background_geopoint-Longitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+survey_end-background_geopoint-Altitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+survey_end-background_geopoint-Accuracy | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+survey_end-note_field_submission | As exported by ODK Central, unchanged
+survey_end-confirm_submission | As exported by ODK Central, unchanged
+survey_end-herbaceous_veg_notes | As exported by ODK Central, unchanged
+survey_end-end_time | As exported by ODK Central, unchanged
+meta-instanceID | As exported by ODK Central, unchanged
+meta-instanceName | As exported by ODK Central, unchanged
+KEY | ODK primary key of the row (submission or repeat instance)
+SubmitterID | As exported by ODK Central, unchanged
+SubmitterName | As exported by ODK Central, unchanged
+AttachmentsPresent | As exported by ODK Central, unchanged
+AttachmentsExpected | As exported by ODK Central, unchanged
+Status | As exported by ODK Central, unchanged
+ReviewState | As exported by ODK Central, unchanged
+DeviceID | As exported by ODK Central, unchanged
+Edits | As exported by ODK Central, unchanged
+FormVersion | As exported by ODK Central, unchanged
+vegplots_plot_uuid | vegplots.csv plot_uuid (joins to the registration form)
+vegplots_plot_status | vegplots.csv plot_status
+vegplots_is_viable | vegplots.csv is_viable
+vegplots_geohash | vegplots.csv geohash
+vegplots_stratum_label | vegplots.csv stratum_label
+vegplots_survey_uuids | vegplots.csv survey_uuids
+register_KEY | KEY of the plot registration submission for this plot
+register_ReviewState | ReviewState of the registration submission
+register_is_plot_viable | plot_selection-is_plot_viable of the registration
+register_sample_status | plot_selection-sample_status of the registration
+surveydef_label | surveys.csv label of the survey definition
+surveydef_target_group | surveys.csv target_group
+recorder_choice_name | project_team.csv choice_name of the recorder
+recorder_affiliation | project_team.csv affiliation of the recorder
+transport_choice_name | transport.csv choice_name
+transport_choice_status | transport.csv choice_status (active or inactive)
+team_choice_names | project_team.csv choice_name of each team member, joined by '; ' (unresolved UUIDs kept as the UUID)
+
+## veg_quadrat (640 rows)
+quadrat_number | Quadrat number along the transect (SOP: 1 to 20)
+note_new_quadrat | As exported by ODK Central, unchanged
+herbs_present | As exported by ODK Central, unchanged
+herb_species-all_unknown_unidentifiable | As exported by ODK Central, unchanged
+herb_species-selected_herb_species_uuids | Species picked from the entity list: UUIDs separated by a space
+herb_species-count_herb_species | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+herb_species-note_herb_species_count | As exported by ODK Central, unchanged
+additional_species_present | As exported by ODK Central, unchanged
+species_list-known_species_list | As exported by ODK Central, unchanged
+species_list-additional_species_list | As exported by ODK Central, unchanged
+species_list-all_species_list | As exported by ODK Central, unchanged
+species_list-note_species_summary_heading | As exported by ODK Central, unchanged
+species_list-note_species_list | As exported by ODK Central, unchanged
+quadrat_image | As exported by ODK Central, unchanged
+location_quadrat-Latitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+location_quadrat-Longitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+location_quadrat-Altitude | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+location_quadrat-Accuracy | As exported by ODK Central, read as a number (text that is not a number becomes NA and is reported in veg_input_findings)
+quadrat_comment | As exported by ODK Central, unchanged
+PARENT_KEY | KEY of the parent row (survey for a quadrat, quadrat for an additional-species row)
+KEY | ODK primary key of the row (submission or repeat instance)
+survey_plot_name | plot_selection-plot_name of the parent survey
+survey_plot_status | plot_selection-get_plot_status of the parent survey
+survey_start_time | survey_begin-start_time of the parent survey
+survey_ReviewState | ReviewState of the parent survey
+n_additional_rows | Number of additional-species rows whose PARENT_KEY is this quadrat
+
+## veg_species_long (2243 rows)
+source | selected_list (picked from the species list) or additional_repeat (additional-species repeat)
+record_id | KEY of the additional-species row; for selected_list rows quadrat KEY + '#' + position in the cell
+survey_key | KEY of the parent survey (NA if the quadrat is an orphan)
+quadrat_key | KEY of the quadrat the record belongs to
+quadrat_number | Quadrat number along the transect (SOP: 1 to 20)
+species_uuid | Species entity UUID (selected_list) or reused entity UUID (additional_repeat)
+species_name | selected_list: species.csv label (NA if unresolved); additional_repeat: validated_name as received
+scientific_name | species.csv scientific_name (selected_list only)
+family | species.csv family (selected_list only)
+species_entry_mode | Entry mode in the additional-species repeat (new/reuse x missing/unknown)
+new_missing_canonical | As exported
+review_status | As exported
+
+## veg_key_integrity (39 rows)
+table | Table the check ran on
+check | Name of the check
+n_checked | Number of items looked at
+n_problem | Number of items with a problem
+
+## veg_input_findings (18 rows)
+table | Table the check ran on
+check | Name of the check
+record_key | KEY of the record with the problem (row_N when the key is blank)
+column | Column the check looked at
+value | The value that was refused or found, as received
+
