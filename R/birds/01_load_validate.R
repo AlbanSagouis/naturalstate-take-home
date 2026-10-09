@@ -65,7 +65,7 @@ assert_true(
 )
 
 # ---- Link validations to predictions ---------------------------------------
-# There is no prediction ID in the validation file (see rulebook, data issues
+# There is no prediction ID in the validation file (see rulebook_birds.md, data issues
 # upstream), so we match on species + recording + confidence at 3 decimals.
 predictions <- predictions |>
   mutate(

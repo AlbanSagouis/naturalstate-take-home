@@ -48,7 +48,7 @@ owns.
   experts in the report. Settle them first.
 - Tech never decides a threshold or a check. Parameter rows are inserted by Biometrics and never
   edited by Tech.
-- State every decision with its reason (and the alternative rejected); log it in `rulebook.md`.
+- State every decision with its reason (and the alternative rejected); log it in the project's rulebook.
 - Use real examples from the data, not invented rows. Constructed rows (for example a boundary
   value) are labelled as constructed.
 - Every number comes from a file via inline chunks; nothing typed by hand. Show SQL by reading

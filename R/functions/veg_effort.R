@@ -1,4 +1,4 @@
-# Sampling effort (issue #9; reasons in rulebook.md): is 20 quadrats enough to describe a plot?
+# Sampling effort (issue #9; reasons in rulebook_vegetation.md): is 20 quadrats enough to describe a plot?
 # Only presence/absence per 1 m x 1 m quadrat exists, so every estimate here is
 # incidence-based (quadrats are the sampling units). Identified taxa only: the
 # provisional unknowns are not stable units (see veg_summaries.R).

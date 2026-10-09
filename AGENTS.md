@@ -10,7 +10,7 @@ Time budget 4-6 h. AI use is encouraged but Alban must be able to explain every 
 - Never modify files in data/raw/. Read-only. Hashes are in data/raw/MANIFEST.sha256.
 - Vegetation: flag data errors, never fix or drop them.
 - Every analytical decision is written into the relevant report with its rationale and alternatives,
-  and into rulebook.md.
+  and into the rulebook of that part (rulebook_birds.md or rulebook_vegetation.md).
 - Propose before writing anything substantial; keep changes small and reviewable.
 - Work is tracked in GitHub issues. Every commit message references its issue
   ("refs #n" while in progress, "closes #n" when done). Decisions taken while working are added
@@ -31,8 +31,8 @@ Time budget 4-6 h. AI use is encouraged but Alban must be able to explain every 
 Two hooks live in `.git/hooks/` (not pushed, so described here). Bypass with `--no-verify`.
 - pre-commit: runs `air format` on staged .R files and restages them. Blocks if `air` is not on
   PATH or if a staged R file also has unstaged edits (stage or stash them first). Also reminds
-  (never blocks) to update rulebook.md when R/birds/, R/vegetation/ or *.qmd files are staged
-  without it.
+  (never blocks) to update the matching rulebook (rulebook_birds.md or rulebook_vegetation.md) when R/birds/,
+  R/vegetation/ or *.qmd files are staged without a rulebook.
 - pre-push: fetches origin and warns, with a confirm prompt, if the remote branch has commits the
   local branch lacks. Skips on first push and in detached HEAD.
 

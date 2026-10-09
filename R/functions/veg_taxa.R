@@ -1,7 +1,7 @@
 # Species identity: which records are identified taxa and which are provisional unknowns
 # (issue #8, used by the plot-diversity check, and #9, used by the summaries).
 #
-# Species identity rule (provisional, see rulebook.md):
+# Species identity rule (provisional, see rulebook_vegetation.md):
 #   identified taxon   = a name from the species list, or a typed name, after
 #                        harmless typing differences are removed (outer and double
 #                        spaces, spaces to underscores, capital first letter), and

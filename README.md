@@ -115,7 +115,8 @@ brief, the SOPs and the Wood & Kahl paper are kept local and are not in this rep
    problem found in the data.
 4. I implemented one issue at a time. Every commit message references its issue (`refs #n` while
    in progress, `closes #n` when done).
-5. I logged decisions in [rulebook.md](rulebook.md) (decision, reason, alternatives) and as
+5. I logged decisions in [rulebook_birds.md](rulebook_birds.md) and
+   [rulebook_vegetation.md](rulebook_vegetation.md) (decision, reason, alternatives) and as
    comments on the issue.
 
 The decision trail is in the [issue list](https://github.com/AlbanSagouis/naturalstate-take-home/issues).
@@ -127,13 +128,13 @@ The AI wrote code and first drafts. The scientific direction was mine. In partic
 - **Environment sensitivity.** I raised the question whether thresholds transfer across recorders,
   times and places, directed the recorder and environment sensitivity analysis, and made it a
   routine step. See "Do thresholds transfer across recorders, times and places?" and "Why the two
-  robustness figures are drawn" in [rulebook.md](rulebook.md#robustness-and-environmental-effects).
+  robustness figures are drawn" in [rulebook_birds.md](rulebook_birds.md#robustness-and-environmental-effects).
   I raised the potential date effect and seasonality for the same reason.
 - **What the Wood & Kahl tutorial does.** I had the supplementary tutorial investigated to see what
   it does and does not do before adopting the recipe.
 - **Eligibility as two questions.** I questioned the first minimum-count rule and split eligibility
   into two separate questions: do the data allow a threshold, and does it generalise
-  ([rulebook](rulebook.md#bird-thresholds)).
+  ([rulebook](rulebook_birds.md#bird-thresholds)).
 - **No threshold without evidence.** Species without enough validation get no threshold and a
   request for more validation, not a special case. I chose one method and one precision target for
   every species, so relative abundances stay comparable.
@@ -143,7 +144,7 @@ The AI wrote code and first drafts. The scientific direction was mine. In partic
   wrong clips are all from the evening), and asked for random night clips.
 - **AIC.** I wanted AIC explored but not used to choose a model.
 - **Field-team list.** I decided that the list for the data providers holds errors and warnings,
-  each with who can resolve it ([rulebook](rulebook.md#reporting)).
+  each with who can resolve it ([rulebook](rulebook_vegetation.md#reporting)).
 - **Rejected submissions.** I decided that submissions rejected in ODK are left out of every plot and
   headline number, counted in the report and the dashboard, and left off the field-team list.
 - **Sampling effort.** I asked for the sampling-effort assessment from the brief to be kept, with
@@ -164,17 +165,17 @@ caveat to it (`unmatched = "error"` in a `left_join` does not catch data keys mi
 lookup) and published it to my personal skill registry. The skill is in
 [.claude/skills/r-code-style/](.claude/skills/r-code-style/).
 
-I scaffolded the repository with `data-wrangling-compendium-skeleton`: `renv`, the `rulebook.md`
-decision log, `AGENTS.md` for AI agents and the git hooks below. The skills this project is set up
+I scaffolded the repository with `data-wrangling-compendium-skeleton`: `renv`, the two
+`rulebook_*.md` decision logs, `AGENTS.md` for AI agents and the git hooks below. The skills this project is set up
 with are listed in the committed manifest
-[.agents/akm.json](.agents/akm.json): `data-wrangling-compendium-skeleton`, `grill-me` and
+[.agents/akm.json](.agents/akm.json): `biometrics-tech-handoff`, `data-wrangling-compendium-skeleton`, `grill-me` and
 `r-code-style`. I used `grill-me` to question the plan before any code was written (see Process).
 
 I captured `biometrics-tech-handoff` from the first handoff (birds) once the structure had
 settled, and reused it for the second (vegetation): TL;DR for Tech, schemas, runtime versus refit,
 config, edge cases, versioning, monitoring, acceptance tests, and the rule that Tech never decides
 a threshold or a check. It is in [.claude/skills/biometrics-tech-handoff/](.claude/skills/biometrics-tech-handoff/).
-I have not added it to the manifest yet, which lists only the three skills above.
+It is listed in the manifest.
 
 If Biometrics does not already have one, a shared R style skill would be a cheap win: one file in a
 shared repository, versioned with the code, loaded by everyone's AI assistant, so conventions live
@@ -186,7 +187,7 @@ Hooks live in `.git/hooks/` and are not pushed, so they are described here and i
 Bypass either with `--no-verify`.
 
 - pre-commit: formats staged R files with `air` and restages them (fails if `air` is missing or a
-  file has unstaged edits), and reminds, without blocking, to update `rulebook.md` when analysis
+  file has unstaged edits), and reminds, without blocking, to update the rulebook when analysis
   code or a `.qmd` is staged without it.
 - pre-push: fetches origin and warns, with a confirm prompt, if the remote branch has commits the
   local branch lacks. Skips on first push and in detached HEAD.
@@ -196,12 +197,9 @@ Bypass either with `--no-verify`.
 The brief encourages AI use. I can explain every line. Claude Code wrote code, tests and first
 drafts of the reports and handoffs, under my direction and in the style enforced by the skills. It
 did not choose the scientific approach, the severity of a check or what counts as evidence for a
-threshold; those decisions are mine and are in [rulebook.md](rulebook.md), and every number in the
+threshold; those decisions are mine and are in [rulebook_birds.md](rulebook_birds.md) and
+[rulebook_vegetation.md](rulebook_vegetation.md), and every number in the
 reports is computed in the `.Rmd` code, not typed.
-
-### Time statement
-
-TODO (author): time spent ... (brief budget: 4 to 6 h).
 
 ## Licence
 

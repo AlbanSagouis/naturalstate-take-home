@@ -1,7 +1,7 @@
 # The check catalogue: the specification of every QA/QC check (issue #8).
 # One row per check. `fun` is the function that implements it and is not part
 # of the exported specification. Message templates use {plot}, {quadrat},
-# {value} and {detail}. Severity logic (rulebook.md):
+# {value} and {detail}. Severity logic (rulebook_vegetation.md):
 # - error: breaks an SOP step or a data rule, or makes the record contradictory
 #   or unusable. Must be resolved before the data are used.
 # - warning: suspicious or off-tolerance; needs a human decision and may be fine.

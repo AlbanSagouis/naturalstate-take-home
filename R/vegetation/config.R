@@ -24,7 +24,7 @@ veg_config <- list(
   # Provisional labels for unidentified plants, e.g. herb_002
   unknown_label_regex = "^(herb|wood)_[0-9]+$",
   uuid_regex = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-  # ---- Check tolerances (issue #8; reasons in rulebook.md) -------------------
+  # ---- Check tolerances (issue #8; reasons in rulebook_vegetation.md) -------------------
   # Belt transect (SOP): 50 m long, 5 m wide; the midpoint is the plot centre
   belt_length_m = 50,
   belt_width_m = 5,
@@ -49,7 +49,7 @@ veg_config <- list(
   review_state_approved = "approved",
   review_state_rejected = "rejected",
   review_state_issues = "hasIssues",
-  # ---- Summaries (issue #9; reasons in rulebook.md) ---------------------------
+  # ---- Summaries (issue #9; reasons in rulebook_vegetation.md) ---------------------------
   # Severity whose flagged records the sensitivity version leaves out
   excluded_severity = "error",
   # Sampling effort: a plot "approaches an asymptote" when the observed richness is at
@@ -64,7 +64,7 @@ veg_config <- list(
   seed = 20261008L,
   # One theme for every figure in the vegetation part
   theme = ggplot2::theme_light(base_size = 11),
-  # ---- Map and dashboard (issue #10; reasons in rulebook.md) -----------------
+  # ---- Map and dashboard (issue #10; reasons in rulebook_vegetation.md) -----------------
   # Projected CRS for map distances: WGS 84 / UTM zone 37N, the zone of every plot
   # (the checks pick the zone from the points; a test asserts they agree)
   map_epsg = 32637L,
@@ -78,7 +78,7 @@ veg_config <- list(
     info = "#8C8C8C",
     none = "#7DBE98"
   ),
-  # Plots drawn as transects in the zoomed figure (reason: see rulebook.md)
+  # Plots drawn as transects in the zoomed figure (reason: see rulebook_vegetation.md)
   map_example_plots = c(
     "SavMon_LW_Plot_01",
     "SavMon_LW_Plot_05",
@@ -86,7 +86,7 @@ veg_config <- list(
     "SavMon_LW_Plot_16"
   ),
   # Natural State brand colours (take-home plan 4c), used by the dashboard and figures
-  # Softened from the brand values (#0D247A, #214097, #17B052, #56B37C); see rulebook.md
+  # Softened from the brand values (#0D247A, #214097, #17B052, #56B37C); see rulebook_vegetation.md
   brand = c(
     navy = "#4A5E9A",
     blue = "#6F86BD",

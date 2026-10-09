@@ -299,7 +299,7 @@ the main version.
   the curve; random order gives the expected curve. The seed is fixed
   for reproducibility.
 - **Status.** Provisional; the estimates and the thresholds are written
-  in `rulebook.md`.
+  in `rulebook_vegetation.md`.
 
 ## 6. Map of transect locations (brief item d)
 
