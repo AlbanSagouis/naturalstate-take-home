@@ -376,10 +376,10 @@ Each decision is also added as a comment on its GitHub issue.
   same values are used in the static figures through `veg_config`. The dashboard overrides are in `dashboard/_brand.yml` and
   `dashboard/custom.scss`.
 
-- **Hosting**: the planned address is https://albansagouis.github.io/naturalstate-take-home/
-  (GitHub Pages from `docs/` on the main branch), stated in the report as "once GitHub Pages is
-  switched on". *(provisional, #10; to confirm)* Until it is switched on the report relies on the
-  three screenshots, taken with headless Firefox because no Chrome is installed.
+- **Hosting**: GitHub Pages serves `docs/` from the main branch at
+  https://albansagouis.com/naturalstate-take-home/ (the `github.io` address redirects there; the
+  account has a custom domain). *(#10)* The report also carries three screenshots, taken with
+  headless Firefox because no Chrome is installed, so it reads without the live page.
 
 # Handoff to Tech (vegetation)
 

@@ -34,7 +34,7 @@
 | [issues_for_field_teams.md](issues_for_field_teams.md) | Errors and warnings per plot, with who can resolve each | Field teams, via Biometrics |
 | [outputs/birds/birdnet_predictions_labelled.csv](outputs/birds/birdnet_predictions_labelled.csv) | Every prediction with `observation_status` and `observation` | Biometrics and Tech |
 | [outputs/vegetation/](outputs/vegetation/) | Check catalogue, flags, summaries, plot locations, excluded records | Biometrics; catalogue also Tech |
-| [docs/index.html](docs/index.html) | Mock-up QA/QC dashboard (source in `dashboard/`); screenshots in `figures/veg_dashboard_*.png` | Biometrics, as a spec for Tech |
+| [docs/index.html](docs/index.html) | Mock-up QA/QC dashboard, live at <https://albansagouis.com/naturalstate-take-home/> (source in `dashboard/`); screenshots in `figures/veg_dashboard_*.png` | Biometrics, as a spec for Tech |
 | [sql/](sql/) | `birds_schema.sql` and `birds_label_observations.sql` (PostgreSQL) | Tech |
 
 The reports are the stand-alone read; the dashboard is an extra.
