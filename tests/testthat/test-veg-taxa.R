@@ -76,3 +76,37 @@ test_that("a placeholder with a proposed name is recognised whatever its case", 
   expect_equal(out$taxon, rep(x = "Justicia_divaricata", times = 2))
   expect_equal(out$taxon_class, rep(x = "identified", times = 2))
 })
+
+test_that("typed misspellings are read as the name they look like, without changing the input", {
+  records <- tibble(
+    source = c("additional_repeat", "additional_repeat", "selected_list"),
+    survey_key = "s1",
+    quadrat_key = c("q1", "q2", "q3"),
+    species_name = c(
+      "herb_092 (Ipomea sinensis)",
+      "Brachiara dura",
+      "Alpha beta"
+    )
+  ) |>
+    mutate(veg_classify_names(x = species_name))
+  flags <- tibble(
+    check_id = c("SPE-06", "SPE-06", "SPE-02"),
+    value = c("Ipomea sinensis", "Brachiara dura", "x"),
+    message = c(
+      "Quadrat 1: \"Ipomea sinensis\" looks like a misspelling of \"Ipomoea\".",
+      "Quadrat 2: \"Brachiara dura\" looks like a misspelling of \"Brachiaria dura\".",
+      "other"
+    )
+  )
+  out <- veg_merge_misspellings(records = records, flags = flags)
+  expect_equal(
+    out$taxon,
+    c("Ipomoea_sinensis", "Brachiaria_dura", "Alpha_beta")
+  )
+  # the input is untouched and without SPE-06 flags nothing changes
+  expect_equal(records$taxon[2], "Brachiara_dura")
+  expect_equal(
+    veg_merge_misspellings(records = records, flags = flags[3, ])$taxon,
+    records$taxon
+  )
+})

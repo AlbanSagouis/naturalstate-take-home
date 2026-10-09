@@ -1,0 +1,4 @@
+measure,n_taxa
+identified taxa (main),70
+typed misspellings read as the name they look like,70
+upper bound: every unknown label counted as a taxon,152

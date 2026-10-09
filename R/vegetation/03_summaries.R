@@ -128,11 +128,12 @@ excl_errors <- build(
 # ---- Sampling effort --------------------------------------------------------
 # Is 20 quadrats enough to describe a plot? One table per version; the curves of the
 # main version are drawn in the report and the dashboard.
-effort_for <- function(view, plot_summary) {
+effort_for <- function(view, plot_summary, include_unknowns = FALSE) {
   matrices <- veg_presence_matrices(
     quadrat = view$quadrat,
     survey = view$survey,
-    records = view$records
+    records = view$records,
+    include_unknowns = include_unknowns
   )
   curves <- veg_accumulation_curves(
     matrices = matrices,
@@ -151,6 +152,31 @@ effort_excl_errors <- effort_for(
   view = kept,
   plot_summary = excl_errors$plot
 )
+# Sensitivity: every provisional unknown label counts as a taxon (an upper bound). Most
+# quadrats hold unknowns, so the identified taxa alone describe a non-random part of the plot.
+effort_upper_bound <- effort_for(
+  view = accepted_view,
+  plot_summary = accepted$plot,
+  include_unknowns = TRUE
+)
+
+# Sensitivity of the data-set richness (accepted submissions)
+merged <- veg_merge_misspellings(
+  records = accepted_view$records,
+  flags = flags_accepted
+)
+richness_sensitivity <- tibble(
+  measure = c(
+    "identified taxa (main)",
+    "typed misspellings read as the name they look like",
+    "upper bound: every unknown label counted as a taxon"
+  ),
+  n_taxa = c(
+    n_distinct(accepted_view$records$taxon, na.rm = TRUE),
+    n_distinct(merged$taxon, na.rm = TRUE),
+    accepted$totals$richness_upper_bound_all_plots
+  )
+)
 
 # ---- Report -----------------------------------------------------------------
 totals <- bind_rows(accepted$totals, excl_errors$totals)
@@ -159,6 +185,7 @@ cli::cli_bullets(c(
   "v" = "{totals$n_surveys[1]} accepted surveys ({nrow(survey_table)} submissions), {totals$n_plots_surveyed[1]} of {totals$n_plots_registered[1]} plots, {totals$n_quadrats[1]} quadrats",
   "v" = "{totals$richness_all_plots[1]} identified taxa (+ {totals$n_unknown_labels_all_plots[1]} provisional unknown labels)",
   "v" = "{sum(effort_accepted$effort$quadrats_short == 0)} of {nrow(effort_accepted$effort)} plots have the {veg_config$expected_quadrats_per_plot} quadrats; {sum(effort_accepted$effort$approaches_asymptote, na.rm = TRUE)} approach an asymptote ({sum(effort_excl_errors$effort$approaches_asymptote, na.rm = TRUE)} excluding errors)",
+  "i" = "richness: {paste(richness_sensitivity$n_taxa, collapse = ' / ')} (identified / misspellings read as intended / upper bound with unknowns); plots approaching an asymptote with unknown labels counted: {sum(effort_upper_bound$effort$approaches_asymptote, na.rm = TRUE)}",
   "i" = "excluding errors: {totals$n_surveys[2]} surveys, {totals$n_quadrats[2]} quadrats, {totals$richness_all_plots[2]} taxa ({nrow(exclusions$quadrats)} quadrats and {nrow(exclusions$surveys)} submissions left out)"
 ))
 
@@ -223,6 +250,12 @@ write_csv(
   file = paths$effort_sens,
   na = ""
 )
+write_csv(
+  x = two_decimals(data = effort_upper_bound$effort),
+  file = paths$effort_upper_bound,
+  na = ""
+)
+write_csv(x = richness_sensitivity, file = paths$richness_sensitivity, na = "")
 write_csv(
   x = two_decimals(data = effort_accepted$curves),
   file = paths$accumulation_curves,

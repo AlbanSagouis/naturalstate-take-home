@@ -61,10 +61,11 @@ n_info <- sum(flags$severity == "info")
   may be fine.
 - `r n_field` items can be resolved by the field team, `r n_manager` by the data manager and `r n_tech`
   by the Tech team (they come from the form, not from the field).
-- The most common field problems: species names typed with a space instead of an underscore
-  (`r sum(issues$check_id == "SPE-02")` names), quadrat locations far from the plot midpoint
-  (`r sum(issues$check_id == "SPA-04")` quadrats), and extra species announced but not recorded
-  (`r sum(issues$check_id == "CON-04")` quadrats).
+- The most common field problems: quadrat locations far from the plot midpoint
+  (`r sum(issues$check_id == "SPA-04")` quadrats), extra species announced but not recorded
+  (`r sum(issues$check_id == "CON-04")` quadrats), and probable misspellings
+  (`r sum(issues$check_id == "SPE-06")` names). Species names typed with a space instead of an
+  underscore are not on the list: the form accepts a space, so it is a form issue for Tech.
 - `r n_info` further notes (for example species still to be identified) are in `outputs/vegetation/flags.csv`
   and are not repeated here.
 

@@ -174,3 +174,31 @@ test_that("the effort check accepts a coherent table and refuses impossible ones
     "sample_coverage"
   )
 })
+
+test_that("unknown labels can be counted as taxa to give an upper bound", {
+  records <- sum_records()
+  main <- veg_presence_matrices(
+    quadrat = sum_quadrat(),
+    survey = sum_survey(),
+    records = records
+  )
+  upper <- veg_presence_matrices(
+    quadrat = sum_quadrat(),
+    survey = sum_survey(),
+    records = records,
+    include_unknowns = TRUE
+  )
+  # plot B only holds the unknown label herb_001: no taxon in the main matrix, one in the upper bound
+  expect_equal(nrow(main$B), 0L)
+  expect_equal(rownames(upper$B), "herb_001")
+  expect_equal(nrow(upper$A), nrow(main$A) + 1L)
+  expect_error(
+    veg_presence_matrices(
+      quadrat = sum_quadrat(),
+      survey = sum_survey(),
+      records = records,
+      include_unknowns = NA
+    ),
+    "May not be NA"
+  )
+})

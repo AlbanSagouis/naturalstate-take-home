@@ -11,8 +11,15 @@
 #' @param quadrat Staged quadrat table (KEY, PARENT_KEY), already filtered.
 #' @param survey Staged survey table (KEY, plot name).
 #' @param records Output of veg_record_taxa(), filtered the same way.
+#' @param include_unknowns Count each provisional unknown label as a taxon (upper bound).
 #' @return Named list (names are plot names) of integer 0/1 matrices.
-veg_presence_matrices <- function(quadrat, survey, records) {
+veg_presence_matrices <- function(
+  quadrat,
+  survey,
+  records,
+  include_unknowns = FALSE
+) {
+  checkmate::assert_flag(x = include_unknowns)
   quadrat_plot <- quadrat |>
     select(quadrat_key = KEY, survey_key = PARENT_KEY) |>
     inner_join(
@@ -25,6 +32,11 @@ veg_presence_matrices <- function(quadrat, survey, records) {
       relationship = "many-to-one",
       unmatched = c(x = "error", y = "drop")
     )
+  # With include_unknowns every provisional label counts as a taxon of its own (an upper
+  # bound: a label can repeat a named taxon)
+  if (include_unknowns) {
+    records <- mutate(.data = records, taxon = coalesce(taxon, unknown_label))
+  }
   present <- records |>
     filter(!is.na(taxon)) |>
     distinct(quadrat_key, taxon)

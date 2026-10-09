@@ -142,42 +142,40 @@ n_plots_changed <- sum(
     filter(.data = plot_sum_sens, surveyed)$gamma_richness
 )
 
-# ---- SQL files ------------------------------------------------------------------------
-sql_text <- function(file) paste(readLines(con = here::here("sql", file)), collapse = "\n")
-show_sql <- function(text) {
-  cat("```sql\n")
-  cat(text, "\n")
-  cat("```\n")
-}
+# ---- SQL schema: table names read from the file ---------------------------------------
+schema_sql <- readLines(con = here::here("sql", "vegetation_schema.sql"))
+schema_objects <- stri_match_first_regex(
+  str = schema_sql,
+  pattern = "^CREATE (TABLE|VIEW|FUNCTION) ([a-z_]+)"
+)
+n_schema_tables <- sum(schema_objects[, 2] == "TABLE", na.rm = TRUE)
 ```
 
 ## TL;DR
 
 - **What to build.** A job that runs after the ODK data have reached the platform and
-  produces four things: staged tables (typed and joined, nothing dropped), a long `veg_flag`
-  table with one row per finding, survey and plot summaries, and a plot
-  location layer for a map. The tables are in `sql/vegetation_schema.sql`. The checks themselves are
-  specified by the catalogue and the R reference, not by SQL.
-- **The key rule.** Checks are rows of a catalogue table (`r n_checks` checks:
-  `r n_sev[["error"]]` error, `r n_sev[["warning"]]` warning, `r n_sev[["info"]]` info).
-  Each row holds the rule, severity, message and a `SELECT`. The runner only executes the
-  rows and writes what they return. On the sample export that gives `r n_flags` flags
-  (`r flag_sev[["error"]]` error, `r flag_sev[["warning"]]` warning, `r flag_sev[["info"]]`
-  info) and a data set is never changed or filtered by a flag.
+  produces staged tables (typed and joined, nothing dropped), a long `veg_flag` table with one
+  row per finding, survey and plot summaries, and a plot location layer for a map. The
+  tables are in `sql/vegetation_schema.sql`.
+- **Key result.** `r n_checks` checks (`r n_sev[["error"]]` error, `r n_sev[["warning"]]`
+  warning, `r n_sev[["info"]]` info) are rows of a catalogue table; the runner only executes
+  them. The sample export gives `r n_flags` flags (`r flag_sev[["error"]]` error,
+  `r flag_sev[["warning"]]` warning, `r flag_sev[["info"]]` info). A flag never changes or
+  filters data.
 - **What Tech must do.** Create the tables, load the catalogue and parameter rows, write the
   staging step and one query per catalogue row (`r n_pure_sql` of `r n_checks` need no
   geometry), rebuild flags and summaries after every batch, serve the dashboard tables, and
-  fix the form and entity-list issues in section 10. Done means the acceptance counts in section 12.
-- **What is not Tech's decision.** Which checks exist, their severity, every tolerance and
-  the species identity rule. Biometrics inserts catalogue and parameter rows; Tech never
-  edits one. There is no open scientific question in this document.
+  fix the upstream issues in section 10. Done means the acceptance counts in section 12.
+- **Key decision.** Tech never decides a check, a severity, a tolerance or the species
+  identity rule. Biometrics inserts catalogue and parameter rows. There is no open
+  scientific question in this document. The SQL schema and runner were not run on PostgreSQL.
 
 ## 1. Inputs and outputs
 
 ### 1.1 What arrives
 
-The brief says the ODK data have already reached the platform. This handoff starts from the
-raw tables. Four ODK Central exports and four entity lists are used.
+The ODK data have already reached the platform; this handoff starts from the raw tables
+(four ODK Central exports and four entity lists).
 
 ```{r raw-tables}
 raw_tbl <- tibble::tribble(
@@ -194,9 +192,8 @@ raw_tbl <- tibble::tribble(
 knitr::kable(x = raw_tbl, align = "llrll")
 ```
 
-The row counts are those of the sample export. The raw table names above are the ODK
-export names; call them whatever the platform's raw layer calls them. Everything that
-follows is keyed on the ODK `KEY` columns.
+Row counts are those of the sample export. Use the platform's own raw table names; all
+that follows is keyed on the ODK `KEY` columns.
 
 ### 1.2 Keys and formats that need care
 
@@ -210,13 +207,11 @@ follows is keyed on the ODK `KEY` columns.
 - **Species picked from the list.** `herb_species-selected_herb_species_uuids` holds entity
   UUIDs **separated by a space**. The derived name columns use `<br/>`; split the UUID cell
   on any white space or `<br/>`. Staging writes one `veg_species_record` row per UUID.
-- **Species typed or provisional.** Species that are not on the list come through the
-  additional-species repeat: `reuse_unknown` and `reuse_missing` carry an entity UUID,
-  `new_unknown` and `new_missing` carry a name (`new_missing_canonical` is what the team
-  typed).
-- **Geopoints.** ODK exports a geopoint as four columns (`...-Latitude`, `-Longitude`,
-  `-Altitude`, `-Accuracy`). The vegplots entity stores it as one string,
-  `'lat lon alt acc'`, latitude first, space separated (for example
+- **Species typed or provisional.** Species not on the list come through the
+  additional-species repeat: `reuse_*` modes carry an entity UUID, `new_*` modes carry a
+  name (`new_missing_canonical` is what the team typed).
+- **Geopoints.** ODK exports four columns (`...-Latitude`, `-Longitude`, `-Altitude`,
+  `-Accuracy`). The vegplots entity stores one string, `'lat lon alt acc'` (for example
   `r filter(.data = vegplots, plot_name == "SavMon_LW_Plot_16")$geometry`).
   Staging parses it into `lat`, `lon`, `altitude_m`, `accuracy_m`; a blank is NULL.
 - **Timestamps.** `SubmissionDate` is UTC (`...Z`). The form times carry the device offset
@@ -227,8 +222,7 @@ follows is keyed on the ODK `KEY` columns.
 
 ### 1.3 Column mapping, raw to staged
 
-The mapping below is checked against the headers of the sample export when this document
-is built, so a column named here exists in the raw file.
+Each raw column below is checked against the sample export headers at build time.
 
 ```{r column-mapping}
 mapping <- tibble::tribble(
@@ -245,8 +239,6 @@ mapping <- tibble::tribble(
   "survey", "field_team_specifics-recorder_uuid", "veg_survey.recorder_uuid", "text",
   "survey", "observations-quadrat_repeat_count", "veg_survey.declared_quadrat_count", "integer",
   "survey", "survey_end-quadrats_with_species", "veg_survey.declared_quadrats_with_species", "integer",
-  "survey", "survey_end-background_geopoint-Latitude", "veg_survey.bg_lat", "double precision",
-  "survey", "survey_end-background_geopoint-Accuracy", "veg_survey.bg_accuracy_m", "double precision",
   "quadrat", "KEY", "veg_quadrat.quadrat_key", "text",
   "quadrat", "PARENT_KEY", "veg_quadrat.survey_key", "text",
   "quadrat", "quadrat_number", "veg_quadrat.quadrat_number", "integer",
@@ -254,8 +246,6 @@ mapping <- tibble::tribble(
   "quadrat", "herb_species-selected_herb_species_uuids", "veg_quadrat.selected_species_uuids and one veg_species_record row per UUID", "text",
   "quadrat", "herb_species-count_herb_species", "veg_quadrat.declared_species_count", "integer",
   "quadrat", "additional_species_present", "veg_quadrat.additional_species_present", "text",
-  "quadrat", "location_quadrat-Latitude", "veg_quadrat.lat", "double precision",
-  "quadrat", "location_quadrat-Accuracy", "veg_quadrat.accuracy_m", "double precision",
   "additional", "KEY", "veg_species_record.record_id", "text",
   "additional", "PARENT_KEY", "veg_species_record.quadrat_key", "text",
   "additional", "species_entry_mode", "veg_species_record.entry_mode", "text",
@@ -295,9 +285,10 @@ mapping |>
   )
 ```
 
-The other staged columns follow the same pattern (same name with `-` replaced by `_`, and
-the geopoint parts in the order latitude, longitude, altitude, accuracy). The entity lists
-fill `veg_plot`, `veg_species`, `veg_project_team`.
+Other staged columns follow the same pattern (`-` becomes `_`). Geopoints (the background
+point `survey_end-background_geopoint-*` and the quadrat point `location_quadrat-*`) become
+`lat`, `lon`, `altitude_m`, `accuracy_m` (`bg_` prefix for the background point). The entity
+lists fill `veg_plot`, `veg_species`, `veg_project_team`.
 
 ### 1.4 Outputs
 
@@ -326,46 +317,48 @@ raw ODK tables ──► staged tables ──► flags ──► summaries and m
    `r n_quadrat` quadrat rows in, `r n_quadrat` out; `r n_add` additional-species rows in,
    `r n_add` `additional_repeat` rows out; `r n_selected_records` picked-species rows are
    added from the UUID cells, giving `r big(n_records)` `veg_species_record` rows in the
-   sample. Nothing is dropped, repaired or reordered away. A lookup that does not match
-   leaves the looked-up column NULL; an orphan row keeps its NULL parent. Only a missing
-   file or a missing required column aborts the run.
+   sample. Nothing is dropped or repaired. An unmatched lookup leaves the column NULL; an orphan
+   keeps its parent key. Only a missing file or required column aborts the run.
 2. **Staged to flags.** Run every active catalogue row against the staged tables
-   (section 3). Flags are facts about the submission and never filter anything.
+   (section 3). Flags never filter anything.
 3. **Flags and staged to summaries.** Build the summary tables twice, for `accepted` and
    `excluding_errors` (section 5).
 
 ### 2.2 Tables
 
-The definitions are in `sql/vegetation_schema.sql` (PostgreSQL 14 or later) and reproduced
-here. It covers the staged tables, parameters, check catalogue, flags and summaries.
+The definitions are in `sql/vegetation_schema.sql` (PostgreSQL 14 or later): `r n_schema_tables`
+tables, two parameter functions and one view. The file is the contract and is not repeated
+here. It was not run on PostgreSQL in this work, so the first step is to run it and fix any
+syntax error without changing a column. Groups:
 
-```{r schema-sql, results="asis"}
-show_sql(text = sql_text(file = "vegetation_schema.sql"))
-```
+| Group | Tables |
+|:---|:---|
+| Staged data | `veg_plot`, `veg_species`, `veg_project_team`, `veg_registration`, `veg_survey`, `veg_quadrat`, `veg_species_record` |
+| Configuration (Biometrics) | `veg_parameter`, `veg_check_catalogue`, functions `veg_param_num()` and `veg_param_text()` |
+| Flags and runs | `veg_flag`, view `veg_flag_open`, `veg_check_run` |
+| Summaries | `veg_survey_summary`, `veg_plot_summary`, `veg_plot_sampling_effort`, `veg_summary_totals`, `veg_plot_location`, `veg_excluded_record` |
 
 Notes on the tables:
 
 - The staged tables have primary keys and types but **no CHECK constraints on data values**
-  and no foreign keys between data rows. A blank count, an orphan or an accuracy of
-  5.066 m must load and be flagged, never be rejected by the database.
+  and no foreign keys between data rows: a blank count, an orphan or an accuracy of 5.066 m
+  must load and be flagged, never rejected.
 - `veg_parameter` and `veg_check_catalogue` are insert-only and owned by Biometrics.
   `veg_flag`, summaries and map layer are written only by the runner and are rebuilt, not
   edited.
-- STR-03 to STR-05 test the uniqueness of keys in the raw export. If the raw layer already
-  enforces a primary key they can never fire; they stay in the catalogue anyway, and Tech
-  does not remove a check.
+- STR-03 to STR-05 test key uniqueness in the raw export. If the raw layer enforces a primary
+  key they never fire; they stay, because Tech does not remove a check.
 
 ## 3. The check catalogue
 
 ### 3.1 The catalogue is configuration
 
-The catalogue has `r n_checks` checks, in eight groups by prefix: structure (STR),
-plot (PLT), quadrat completeness (QUA), consistency (CON), species (SPE), spatial (SPA),
-time (TIM) and metadata (MET). The full text of every column (id, level, severity, rule,
-columns, SOP reference, message template, what to check, who can resolve) is in
-`outputs/vegetation/check_catalogue.csv`; this is the specification and the seed for
-`veg_check_catalogue`. The column `columns` of the CSV is called `input_columns` in the
-table, because `columns` is an SQL keyword.
+The catalogue has `r n_checks` checks in eight families by id prefix: structure (STR), plot
+(PLT), quadrat completeness (QUA), consistency (CON), species (SPE), spatial (SPA), time
+(TIM) and metadata (MET). `outputs/vegetation/check_catalogue.csv` holds every column (id,
+level, severity, rule, columns, SOP reference, message template, what to check, who can
+resolve). It is the specification and the seed for `veg_check_catalogue`; its `columns` is
+`input_columns` in the table, because `columns` is an SQL keyword.
 
 ```{r catalogue-counts}
 catalogue |>
@@ -379,20 +372,24 @@ catalogue |>
 `r sum(catalogue$who_can_resolve == "data manager")` by the data manager and
 `r sum(catalogue$who_can_resolve == "Tech")` by Tech (typically a form or export fault).
 
-```{r catalogue-table}
+```{r catalogue-families}
 catalogue |>
-  mutate(rule = cell(x = rule)) |>
-  select(id, level, severity, `who can resolve` = who_can_resolve, rule) |>
-  knitr::kable(align = "lllll")
+  mutate(family = stri_extract_first_regex(str = id, pattern = "^[A-Z]+")) |>
+  count(family, severity) |>
+  tidyr::pivot_wider(names_from = severity, values_from = n, values_fill = 0L) |>
+  select(family, error, warning, info) |>
+  knitr::kable(align = "lrrr", caption = "Checks by family (id prefix) and severity")
 ```
+
+The rule sentence of each check is not repeated here. Read it in
+`outputs/vegetation/check_catalogue.csv`; the reference implementation is
+`R/functions/veg_checks_*.R`.
 
 ### 3.2 How Biometrics adds or changes a check
 
-Biometrics edits rows; nobody edits code.
-
-- **Change a severity, a message, the action text or who resolves it:** insert a new
-  version of the catalogue row (`version + 1`, a later `valid_from`). Flags raised from then
-  on carry the new version; flags of the old version are closed or re-raised on the next run.
+- **Change a severity, message, action text or resolver:** insert a new catalogue row
+  version (`version + 1`, later `valid_from`). New flags carry it; old-version flags are
+  closed or re-raised on the next run.
 - **Change a tolerance:** insert a new `veg_parameter` row (section 8). The queries read
   tolerances through `veg_param_num()` and `veg_param_text()`, never as literals.
 - **Switch a check off:** insert a new version with `active = false`.
@@ -400,31 +397,28 @@ Biometrics edits rows; nobody edits code.
   `survey_key, quadrat_key, value, detail`. Placeholders `{plot}`, `{quadrat}`, `{value}` and
   `{detail}` in `message_template` are filled by the runner.
 
-Tech's part is the runner and the guard rails: it runs `check_sql` as a read-only database
-role with a statement timeout, rejects a result that does not have the four columns, and
-rolls back the whole run on any error. Tech does not judge whether a rule is right.
+Tech's part is the runner and the guard rails: `check_sql` runs as a read-only role with a
+statement timeout, a result without the four columns is rejected, and any error rolls back
+the whole run. Tech does not judge whether a rule is right.
 
-The catalogue CSV does not contain the `check_sql` text. For the first load Tech writes one
-query per row from the rule sentence, the input columns and the reference implementation
-(`R/functions/veg_checks_*.R`, one function `veg_chk_<id>` per check). A query is finished
-when its flag count matches section 12.
-From then on the query text is Biometrics' to change.
+The CSV has no `check_sql`. For the first load Tech writes one query per row from the rule,
+the input columns and the reference implementation (`R/functions/veg_checks_*.R`, one
+function `veg_chk_<id>` per check). A query is finished when its flag count matches
+section 12; after that the text is Biometrics' to change.
 
 ### 3.3 The runner
 
-For each active check the runner materialises the result of its query into a temporary
-table, then records the findings: one row per check, submission, quadrat and value, with
-`flag_id` the md5 of those four (NULL as empty text), `first_seen_run` set the first time and
-`last_seen_run` updated each time it is raised again. Afterwards one `UPDATE` sets
-`resolved_at` on the findings of active checks that were not raised in this run. The runner
-SQL is not supplied: it is a few statements over `veg_flag` (section 4), and it was not
-run on PostgreSQL here.
+For each active check the runner materialises the query result into a temporary table and
+upserts the findings into `veg_flag` (section 4): `first_seen_run` is set once,
+`last_seen_run` on every run that raises the finding. One `UPDATE` then sets `resolved_at`
+on findings of active checks not raised in this run. The runner SQL is not supplied (a few
+statements) and was not run on PostgreSQL.
 
 ### 3.4 Which checks need geometry
 
 `r length(geometry_ids)` checks need a distance between two points: `r paste(geometry_ids, collapse = ", ")`.
-The other `r n_pure_sql` are row-level or group-level comparisons in plain SQL: counts,
-joins, comparisons, a regular expression, a time difference.
+The other `r n_pure_sql` are plain SQL: counts, joins, comparisons, a regular expression, a
+time difference.
 
 ```{r geometry-checks}
 catalogue |>
@@ -457,15 +451,13 @@ How the distances are computed, exactly:
 6. A row with a missing coordinate on either side is skipped by these three checks (QUA-05
    and SPA-03 report the missing point).
 
-Any geometry library that follows steps 1 to 3 is acceptable (for example PostGIS with
-`ST_Transform` and `ST_Distance`, or `pyproj` to project and then plain Euclidean distance).
-The R reference uses `sf`. None of these was compared with another here, so the first load
-should check the three distance checks against the flag counts of section 12.
+Any library that follows steps 1 to 3 is acceptable (PostGIS `ST_Transform` and
+`ST_Distance`, or `pyproj` then Euclidean distance). The R reference uses `sf`; none was
+compared with another, so check the three distance checks against section 12.
 
-Five other checks are not plain row-level comparisons. `r paste(group_ids, collapse = ", ")`
-compare a submission with the other submissions of the same plot (STR-07 to STR-09) or with
-the most common form version (MET-01). SPE-06 needs an edit distance (the extension
-`fuzzystrmatch`, `levenshtein()`, or a Python equivalent): at most
+Five other checks are not row-level. `r paste(group_ids, collapse = ", ")` compare a
+submission with the other submissions of the plot (STR-07 to STR-09) or with the most common
+form version (MET-01). SPE-06 needs an edit distance (`fuzzystrmatch`, `levenshtein()`): at most
 `r cfg$misspelling_max_distance` edits and at most `r pct(cfg$misspelling_max_relative)` of
 the name length, or a genus exactly one letter off a listed genus of at least
 `r cfg$misspelling_min_genus_length` letters. SPE-06 is a suggestion for a human, never a
@@ -473,19 +465,17 @@ correction.
 
 ### 3.5 Two checks worth knowing
 
-Two checks behave in ways worth knowing. CON-06 compares the form's own
-`quadrats_with_species` with the number of quadrats that have at least one species record of
-either source; the form figure is wrong (section 10), so this check raises a warning for
-Tech, not for the field team. SPE-02 does not trim before matching: a trailing space is a
-finding. All `r sum(flags$check_id == "SPE-02")` typed names of the sample fail, because they
-use a space instead of an underscore.
+CON-06 compares the form's `quadrats_with_species` with the quadrats that have a species
+record of either source. The form figure is wrong (section 10), so this is for Tech, not the
+field team. SPE-02 does not trim before matching. All `r sum(flags$check_id == "SPE-02")`
+typed names of the sample fail it, because the form accepts a space where the SOP asks for an
+underscore; it is information for Tech.
 
 ## 4. The flags table contract
 
 - **Long format, one row per finding.** A finding is identified by check, submission,
   quadrat and value. `flag_id` is the `md5` of those four (NULL as empty text), so the same
-  finding keeps its id across runs. The R reference files build the same md5, so the ids in
-  `flags.csv` can be compared directly with the ids the runner produces.
+  finding keeps its id across runs. The R reference builds the same md5, so compare with `flags.csv` on `flag_id`.
 - **Columns.** `flag_id, check_id, check_version, level, severity, survey_key, quadrat_key,
   plot_name, survey_date, recorder, value, detail, message, who_can_resolve` plus
   `first_seen_run`, `last_seen_run` and `resolved_at`. `level` and `severity` are copied
@@ -501,8 +491,7 @@ use a space instead of an underscore.
   follow-up that needs no correction. A flag never has a severity of its own.
 - **Uniqueness.** Two rows of one check with the same survey, quadrat and value are one
   finding (`SELECT DISTINCT ON (flag_id)` in the runner).
-- **Counts in the sample:** `r n_flags` flags from `r n_fire` of the `r n_checks` checks
-  (section 12 lists them).
+- **Sample:** `r n_flags` flags from `r n_fire` of the `r n_checks` checks (section 12).
 
 ## 5. Summaries
 
@@ -563,10 +552,10 @@ knitr::kable(
 ### 5.2 Plot-level
 
 One row per registered plot (`r tot_all$n_plots_registered` in the sample, of which
-`r tot_all$n_plots_surveyed` are surveyed), `veg_plot_summary`. Only submissions that were not
-rejected in ODK count, and the flag counts of a plot come from them too: a plot submitted twice
-because one of the two submissions was rejected (Plot_18 and Plot_21) has one survey and
-`r max(plot_sum$n_quadrats)` quadrats, like every other plot. Columns:
+`r tot_all$n_plots_surveyed` are surveyed), `veg_plot_summary`. Only submissions not
+rejected in ODK count, flag counts included: a plot submitted twice with one rejection
+(Plot_18 and Plot_21) has one survey and `r max(plot_sum$n_quadrats)` quadrats, like every
+other plot. Columns:
 
 ```{r plot-cols}
 knitr::kable(
@@ -577,12 +566,11 @@ knitr::kable(
 
 ### 5.3 The species identity rule and the diversity index
 
-These two definitions are fixed by Biometrics (parameters and rules, not Tech's choice).
+Fixed by Biometrics, not Tech's choice.
 
 #### Identity
 
-Every species record (picked from the list, or typed, or reused) is classified
-into an *identified taxon* or a *provisional unknown*:
+Every species record is classified as an *identified taxon* or a *provisional unknown*:
 
 1. Trim outer white space, collapse double spaces, turn spaces into underscores, capitalise
    the first letter. The result is the taxon name. `Pogonarthria fleckii` and
@@ -591,8 +579,7 @@ into an *identified taxon* or a *provisional unknown*:
    as its proposed name, `Justicia_divaricata`.
 3. A bare placeholder (`herb_NNN`, `wood_NNN`, pattern `unknown_label_regex`), a UUID typed
    as text, or a record with no name is a **provisional unknown**. Unknowns are counted
-   apart (`n_unknown_labels`, the distinct labels) and never enter `richness`; the tables
-   show `richness_upper_bound` next to it.
+   apart (`n_unknown_labels`) and never enter `richness`; `richness_upper_bound` sits next to it.
 4. Misspellings are **not** merged (SPE-06 only suggests a correction), and records are
    counted once per taxon however many times they occur.
 
@@ -601,11 +588,11 @@ In the sample this gives `r tot_all$richness_all_plots` identified taxa and
 
 #### Plot diversity outliers (PLT-09)
 
-No diversity index is stored in the summaries. PLT-09 (info, data manager) uses Shannon's
-`H` only to find odd plots. For each plot, pool the quadrats of its submissions that were not
-rejected; for each identified taxon `i` let `f_i` be the number of quadrats in which it occurs
-and `p_i = f_i / sum(f)`; `H = -sum(p_i * ln(p_i))` (natural log). There is no abundance, only
-presence per 1 m by 1 m quadrat. Plots with no identified taxon have no `H`. With at least
+No diversity index is stored. PLT-09 (info, data manager) uses Shannon's `H` only to find odd
+plots. Pool the quadrats of a plot's non-rejected submissions; for each identified taxon `i`
+let `f_i` be the number of quadrats where it occurs and `p_i = f_i / sum(f)`;
+`H = -sum(p_i * ln(p_i))`. There is no abundance, only presence. Plots with no identified
+taxon have no `H`. With at least
 `shannon_outlier_min_plots` plots (`r cfg$shannon_outlier_min_plots`), compute the median and the
 scaled median absolute deviation (MAD, constant 1.4826) of `H` over the plots; every submission of a plot
 with `abs(H - median) / MAD` above `shannon_outlier_mad` (`r cfg$shannon_outlier_mad`) is flagged.
@@ -613,10 +600,9 @@ No flag when the MAD is 0. On the sample it raises `r sum(flags$check_id == "PLT
 
 ### 5.4 The sensitivity version
 
-Both versions are filtered views of the same staged data, never a repair. Exactly what is left
-out, recorded one row per record in `veg_excluded_record`. Rule 1 applies to both versions
-(`accepted` is every submission not rejected, in the plot and totals tables); rules 2 to 4
-only to `excluding_errors`, except orphans:
+Both versions are filtered views of the same staged data, never a repair. Each record left
+out is a row in `veg_excluded_record`. Rule 1 applies to both versions, rules 2 and 3 only to
+`excluding_errors`, rule 4 to both:
 
 1. **A submission with `ReviewState = 'rejected'`**: the submission and all its quadrats and
    species records (reason `rejected_submission`). The survey table of `accepted` still lists
@@ -629,9 +615,8 @@ only to `excluding_errors`, except orphans:
 4. **Orphan records** (a quadrat or species row whose parent is missing): left out of both
    versions, because no summary can place them; reason `orphan_record`. The sample has none.
 
-Warnings and info never exclude. The flag counts (`n_error`, `n_warning`, `n_info`) are the
-same in both versions, because flags describe what was submitted; both leave out the flags of
-rejected submissions from plot counts. The flags themselves stay in `veg_flag`. The parameter
+Warnings and info never exclude. Flag counts are the same in both versions (flags describe
+what was submitted); plot counts leave out flags of rejected submissions. The parameter
 `excluded_severity` (`r cfg$excluded_severity`) names the severity that triggers rule 2.
 
 In the sample `r n_excl_surveys` submissions (the `r n_rejected` rejected resubmissions, with
@@ -643,12 +628,10 @@ Richness over all plots stays `r tot_sens$richness_all_plots`; the gamma richnes
 
 ### 5.5 Sampling effort
 
-One row per surveyed plot and version, `veg_plot_sampling_effort`. It answers whether a
-plot's quadrats have found most of the taxa the plot holds. Tech computes four values and a status per
-plot from the plot's quadrats (identified taxa only, because unknown labels are not stable
-units; accepted submissions only, as in section 5.2) and applies two thresholds. The
-accumulation curves, the Chao2 interval and the gain over the last quadrats are not on the
-platform; they stay in `vegetation_report.md`.
+One row per surveyed plot and version, `veg_plot_sampling_effort`. It answers whether a plot's quadrats have found most of its taxa. Tech computes four values
+and a status per plot from its quadrats (identified taxa only; accepted submissions only, as
+in section 5.2) and applies two thresholds. Accumulation curves, the Chao2 interval and the
+gain over the last quadrats stay in `vegetation_report.md`.
 
 Let `T` be the number of quadrats of the plot, `S` the observed richness (`observed_richness`),
 `f_i` the number of quadrats in which taxon `i` occurs, `U = sum(f_i)`, `Q1` the number of
@@ -669,11 +652,10 @@ taxa with `f_i = 1` and `Q2` the number with `f_i = 2`.
   (estimate, coverage and completeness NULL); `failed` when the estimate cannot be computed
   (same NULLs). Neither is an error of the run.
 
-Both formulas were verified against `iNEXT::ChaoRichness` and `iNEXT::DataInfo` (incidence
-raw data) on small random matrices; they agree to the printed precision. The two thresholds
-are provisional values in `veg_parameter`, Biometrics owns them (section 8), and Tech reads
-them with `veg_param_num()`. A plot with fewer quadrats than `quadrats_required` is still
-computed; `n_quadrats` and `quadrats_required` sit next to the estimate so the shortfall is visible.
+Both formulas agree with `iNEXT::ChaoRichness` and `iNEXT::DataInfo` on small random
+matrices. The two thresholds are provisional `veg_parameter` values owned by Biometrics
+(section 8). A plot with fewer quadrats than `quadrats_required` is still computed;
+`n_quadrats` and `quadrats_required` sit next to the estimate.
 
 In the sample, all `r nrow(effort)` plots have `r max(effort$n_quadrats)` quadrats and
 `r sum(effort$approaches_asymptote, na.rm = TRUE)` of them approach an asymptote
@@ -683,9 +665,8 @@ The rest are under-sampled for the stated thresholds, and the estimate is a lowe
 ## 6. Dashboard views the platform must serve
 
 The dashboard prototype `dashboard/dashboard.qmd` (Quarto, rendered to `docs/index.html`) is
-a **mock-up of the content**, not a specification of the interface: it reads the CSVs and
-runs no analysis. Tech serves the tables below to the React/TypeScript front end; layout and
-components are the front end's own.
+a **mock-up of the content**, not an interface specification: it reads the CSVs and runs no
+analysis. Tech serves the tables below to the front end, which owns layout and components.
 
 | View | Table | Columns | Filters |
 |:---|:---|:---|:---|
@@ -726,37 +707,34 @@ The prototype's three views, for the content only:
   or parameter row. A run does not need to know what changed.
 - **Idempotent, full recompute.** A run rebuilds the staged tables, evaluates every active
   check and rebuilds the summaries from scratch. The sample has `r n_survey` surveys,
-  `r n_quadrat` quadrats and `r big(n_records)` species records, so incremental logic would
-  cost more than it saves. Running twice on unchanged data changes only `last_seen_run`
-  and the run table. Flags are upserted on `flag_id`; summary tables are replaced inside the
-  same transaction.
+  `r n_quadrat` quadrats and `r big(n_records)` species records, so incremental logic is not
+  worth it. Running twice on unchanged data changes only `last_seen_run` and the run table.
+  Flags are upserted on `flag_id`; summaries are replaced in the same transaction.
 - **One transaction, one run at a time.** Take an advisory lock at the start
   (`pg_advisory_xact_lock`). If a check raises an error the whole run rolls back, the
   previous results stay visible, and `veg_check_run` records `status = 'failed'` with
   `error_message`. The dashboard shows the time of the last `ok` run.
-- **A rejected duplicate.** A reviewer rejects one of two submissions for a plot in ODK. The rejected row stays in the raw and staged tables. It raises STR-07
-  (info: "rejected; the plot also has an accepted submission"); it is listed in the survey table but
-  counted in no plot row or total, in either version. Two accepted submissions of one plot and survey raise
-  STR-08 (warning); a plot whose submissions are all rejected raises STR-09 (error). When
-  the reviewer later changes the review state, the next run follows.
-- **A backup plot.** The SOP allows a backup plot when a primary one is not viable. It is a
-  normal plot with `plot_status = 'backup'`: surveyed like any other, raises PLT-06 (info),
-  appears in every table and on the map with its own symbol. The data hold no link between a
-  backup and the primary it replaces, so none is checked.
-- **Fixing an error upstream.** Someone corrects the submission in ODK Central; the next
-  run closes the flag (`resolved_at`). Tech never corrects a value in the platform.
+- **A rejected duplicate.** A reviewer rejects one of two submissions for a plot in ODK. The
+  rejected row stays in the raw and staged tables and raises STR-07 (info); it is listed in
+  the survey table but counted in no plot row or total, in either version. Two accepted
+  submissions of one plot raise STR-08 (warning); a plot whose submissions are all rejected
+  raises STR-09 (error). A later change of review state is followed by the next run.
+- **A backup plot.** A normal plot with `plot_status = 'backup'`: surveyed like any other,
+  raises PLT-06 (info), has its own map symbol. The data hold no link to the primary it
+  replaces, so none is checked.
+- **Fixing an error upstream.** Someone corrects the submission in ODK Central; the next run
+  sets `resolved_at`. Tech never corrects a value in the platform.
 
 ## 8. Configuration Biometrics can change without code
 
-These values live in `veg_parameter` (and the severity per check in `veg_check_catalogue`).
-They are seeded from `R/vegetation/config.R`, which is the reference. A change is a new row
-with a later `valid_from`; the next run uses it. Tech does not edit them, and the platform
-reads them only through `veg_param_num()` and `veg_param_text()` (never copied into code).
+These values live in `veg_parameter`, seeded from `R/vegetation/config.R` (the reference). A
+change is a new row with a later `valid_from`; the next run uses it. Tech does not edit them,
+and code reads them only through `veg_param_num()` and `veg_param_text()`.
 
 ```{r config-table}
 param_tbl <- tibble::tribble(
   ~parameter, ~meaning,
-  "accuracy_limit_m", "Geopoint accuracy (m) above which a point breaks the SOP (SPA-01, SPA-02); also the stand-in for a missing accuracy in the distance checks",
+  "accuracy_limit_m", "Accuracy (m) above which a geopoint breaks the SOP (SPA-01, SPA-02); stand-in for a missing accuracy in distance checks",
   "belt_length_m", "Belt transect length (m); the midpoint is the plot centre",
   "belt_width_m", "Belt transect width (m)",
   "quadrat_spacing_m", "Quadrat spacing along the transect (m)",
@@ -789,37 +767,33 @@ param_tbl |>
   knitr::kable(align = "lll")
 ```
 
-Not parameters, on purpose: the severity of a check (one value per catalogue row), the
-identity rule steps and the formulas of section 5, including the effort formulas (changing them changes what the numbers
-mean, so Biometrics ships a new document and a new SQL version), and the set of review
-states (`approved`, `rejected`, `hasIssues`, which are ODK Central's).
+Not parameters, on purpose: check severity (a catalogue column), the identity rule and the
+formulas of section 5 (changing them changes what the numbers mean, so Biometrics ships a
+new document and SQL version), and the review states (`approved`, `rejected`, `hasIssues`,
+which are ODK Central's).
 
 ## 9. Edge cases and failure behaviour
 
 A state without a value is a normal state with a flag, not an error. Only a missing file or
-a missing required column aborts a run.
+required column aborts a run. Repeat runs and ODK edits are covered in sections 4 and 7; the
+time zone case is below.
 
 | Case | Behaviour |
 |:---|:---|
 | Missing quadrat geopoint | Loads as NULL. QUA-05 (error) flags the quadrat. Distance checks skip it. |
 | Missing background geopoint | NULL. SPA-03 (info) flags the survey. SPA-05 skips it. |
 | Plot without geometry | `veg_plot` lat and lon NULL; distance checks skip its quadrats; kept in `veg_plot_location` with NULL coordinates. |
-| Blank species count with no herbs | NULL. QUA-04 (info). Not treated as an error; summaries do not use the count. |
-| Blank species count with herbs | NULL. CON-03 compares only non-blank counts; CON-02 flags a quadrat marked with herbs but no record. |
+| Blank species count | NULL. QUA-04 (info) if no herbs; CON-03 compares only non-blank counts; CON-02 flags herbs marked but no record. Summaries do not use the count. |
 | Orphan quadrat or species row | Loads with its parent key. STR-01 or STR-02 (error). Left out of both summary versions (reason `orphan_record`). |
 | Duplicate key in a lookup (a plot registered twice, a plot id twice in the plot list) | A choice made in the R reference: the staging joins are many-to-one, so the run aborts rather than let a duplicate multiply survey rows (the duplicate is already a row in `veg_key_integrity`). What the platform does instead is for Biometrics to decide, not Tech. The sample has none. |
 | Survey without quadrats | QUA-01 (error); it appears in the survey summary with `n_quadrats = 0`. |
 | Unknown species UUID in a quadrat | `species_name` NULL. SPE-01 (error). In the summaries it is an unnamed record, so a provisional unknown, never a taxon. |
 | Reused extra-list UUID not found | SPE-10 (error); same summary treatment. |
-| Species name with a stray space | SPE-05 or SPE-12 (warning). The identity rule trims it, so the taxon is still counted. |
-| Declared quadrat count differs | QUA-03 (warning). |
+| Species name with a stray space | SPE-05 or SPE-12 (warning); the identity rule trims it. |
 | New form version | MET-01 (warning) flags every submission whose `FormVersion` differs from the most common one. Staging reads columns by name: a new extra column is ignored, a **missing required column aborts the run** and names the column. |
-| Time zone offset | See below. |
 | Timestamp that cannot be parsed | NULL. TIM-05 (error); the other time checks skip it. |
 | Parameter or catalogue row missing | The run aborts (a check without its parameter is not run silently). |
 | A check query returns a wrong column set | The run aborts and rolls back; nothing partial is written. |
-| Run twice on the same data | No change except `last_seen_run`. |
-| A flagged record is edited in ODK | Next run: `resolved_at` set, summaries follow the new data. |
 
 ### 9.1 The time zone artefact
 
@@ -828,46 +802,43 @@ in every row of the sample) while `SubmissionDate` is UTC. If staging drops the 
 example by casting to `timestamp` instead of `timestamptz`), `r n_artefact` of the
 `r n_survey` surveys appear to start more than `r cfg$start_after_submission_tolerance_s` s after
 they were submitted. With the offset honoured it is `r n_honoured`, and TIM-03 raises no
-flag. If TIM-03 fires on many rows after a change to staging, look at the time parsing first.
+flag. If TIM-03 fires on many rows after a staging change, check the time parsing first.
 
 ## 10. Metadata and form issues for Tech to fix upstream
 
 These are faults in the ODK forms and entity lists, not in the analysis. Each is also a
-catalogue flag, so the platform will show it until it is fixed.
+catalogue flag, shown until fixed.
 
-1. **`quadrats_with_species` calculation (form).** The end-of-survey figure
-   `survey_end-quadrats_with_species` counts only quadrats that have additional-species
-   rows. It ignores quadrats whose species were all picked from the list. It equals the
-   additional-species definition in `r n_survey` of `r n_survey` surveys and understates the
-   truth in `r sum(flags$check_id == "CON-06")` (CON-06). The SOP (section 5, step 13) tells
-   the team to judge plausibility from this figure, so it misleads at the moment of
-   submission. Fix the calculation to count quadrats with a picked or an additional species.
-2. **Trailing space in an entity label.** The extra-species entity `Evolvulus alsinoides`
-   has a trailing space in its label and is reused `r sum(records$species_name == "Evolvulus alsinoides ", na.rm = TRUE)`
+1. **`quadrats_with_species` calculation (form).** `survey_end-quadrats_with_species` counts
+   only quadrats with additional-species rows and ignores quadrats whose species were all
+   picked from the list. It equals the additional-species definition in `r n_survey` of `r n_survey`
+   surveys and understates the truth in `r sum(flags$check_id == "CON-06")` (CON-06). The SOP (section 5, step 13) tells the team
+   to judge plausibility from it. Count quadrats with a picked or an additional species.
+2. **Trailing space in an entity label.** The extra-species entity `Evolvulus alsinoides` has
+   one and is reused `r sum(records$species_name == "Evolvulus alsinoides ", na.rm = TRUE)`
    times (SPE-12, `r sum(flags$check_id == "SPE-12")` flags). One edit in the entity list.
 3. **The typed-name field accepts anything but `,;()`.** All `r sum(flags$check_id == "SPE-02")`
-   typed names in the sample use a space where the SOP asks for an underscore, and
-   `r sum(flags$check_id == "SPE-05")` have a stray outer space. Add a form constraint that
-   requires `Genus_species` (the pattern is `species_name_regex`).
-4. **`plot_selection-plot_status` is blank in every row.** The form stores the status in
-   `get_plot_status`; staging uses that one. Populate or drop the blank column.
-5. **Two ids with similar names for different things.** Survey `selected_plot_uuid` equals
-   vegplots `__id`; vegplots `plot_uuid` is the key to the registration form. Rename a column
-   or document it in the form's data dictionary.
-6. **Provisional labels are not linked to the names given to them.** A `herb_NNN` label that
-   carries a proposed name in one record appears as a plain label in others. Storing the
-   proposed name on the entity would let every record of the label resolve to one taxon.
-7. **Registrations uploaded after the surveys that use them** (PLT-08, info, `r sum(flags$check_id == "PLT-08")` plots).
-   The registration form's end time is earlier in every case; the upload was late. A
-   process reminder for the teams, not a platform fault.
+   typed names use a space where the SOP asks for an underscore, and
+   `r sum(flags$check_id == "SPE-05")` have a stray outer space. Add a constraint requiring
+   `Genus_species` (pattern `species_name_regex`).
+4. **`plot_selection-plot_status` is blank in every row.** Staging uses `get_plot_status`.
+   Populate or drop the blank column.
+5. **Two similar ids for different things.** Survey `selected_plot_uuid` equals vegplots
+   `__id`; vegplots `plot_uuid` keys the registration form. Rename or document.
+6. **Provisional labels are not linked to the names given to them.** A `herb_NNN` label with
+   a proposed name in one record is a plain label in others. Storing the proposed name on the
+   entity would resolve every record of the label to one taxon.
+7. **Registrations uploaded after the surveys that use them** (PLT-08, info,
+   `r sum(flags$check_id == "PLT-08")` plots). A process reminder for the teams, not a
+   platform fault.
 
 ## 11. Monitoring
 
 ### 11.1 Per batch
 
-The numbers that tell whether a batch is healthy: flags per severity, and the share of
-surveys with at least one error flag. A sudden jump usually means a changed form, a changed
-export or a staging bug (for example the time offset above), not worse fieldwork.
+Healthy batch: flags per severity and the share of surveys with an error flag. A sudden jump
+usually means a changed form, export or staging bug (such as the time offset), not worse
+fieldwork.
 
 ```sql
 -- Flags raised by the latest run, per severity
@@ -906,10 +877,9 @@ times between two runs with no change in the data.
 
 ## 12. Acceptance tests
 
-Done means: on the sample export the runner produces exactly these flag counts, per check
-and severity, and the concrete rows below behave as stated. The counts come from
-`outputs/vegetation/flags.csv`. The `flag_id` in that file is the same md5 the runner produces, so
-compare on `flag_id`, or on check id, submission, quadrat and value.
+Done means: on the sample export the runner produces exactly these flag counts per check and
+severity (from `outputs/vegetation/flags.csv`, compared on `flag_id`) and the concrete rows
+below behave as stated.
 
 ### 12.1 Flag counts per check
 
@@ -963,7 +933,7 @@ rows <- tibble::tribble(
   "Real",
   "Typed name with a stray space",
   paste0("`typed_name = '", spe02$value, "'` in ", spe02$plot_name),
-  "SPE-02, warning, `value` as typed",
+  "SPE-02, info, `value` as typed",
   "Real",
   "The same name written correctly",
   "`typed_name = 'Justicia_divaricata'`",
@@ -997,10 +967,9 @@ rows <- tibble::tribble(
 knitr::kable(x = rows, align = "llll")
 ```
 
-Also test: a second run on unchanged data leaves every `flag_id` and the flag counts
-unchanged and changes only `last_seen_run`; raising a tolerance by inserting a later
-`veg_parameter` row changes only the flags of the checks that read it; correcting a flagged
-value in a copy of the data sets `resolved_at` on the next run; the summary totals are
+Also test: a second run on unchanged data changes only `last_seen_run`; inserting a later
+`veg_parameter` row changes only the flags of checks that read it; correcting a flagged
+value in a copy of the data sets `resolved_at`; the summary totals are
 `r tot_all$n_surveys` surveys, `r tot_all$n_quadrats` quadrats and `r tot_all$richness_all_plots`
 identified taxa (`accepted`), and `r tot_sens$n_surveys` surveys and `r tot_sens$n_quadrats`
 quadrats (`excluding_errors`); the survey table lists `r nrow(survey_sum)` submissions.
@@ -1020,12 +989,11 @@ changing `completeness_min` by inserting a later `veg_parameter` row changes onl
 
 ## 13. Versioning
 
-- This document and the two SQL files are versioned in git. A schema change is a migration
-  that only adds columns.
+- This document and the SQL files are versioned in git. A schema change only adds columns.
 - The catalogue is versioned by row: `(check_id, version)` with `valid_from`; parameters by
   `(name, valid_from)`. Old rows stay.
-- Every flag stores the `check_version` that raised it and the run that first and last saw
-  it, so a flag traces back to the exact catalogue row, and `check_sql`, that produced it.
+- Every flag stores its `check_version` and first and last run, so it traces back to the
+  catalogue row and `check_sql` that produced it.
 - The identity rule and the formulas of section 5 are versioned with this document.
 
 ## 14. Stack

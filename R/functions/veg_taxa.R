@@ -100,3 +100,41 @@ veg_record_taxa <- function(species_long, config = veg_config) {
       config = config
     ))
 }
+
+#' Records with the typed misspellings of check SPE-06 read as the name they look like
+#'
+#' A sensitivity, never a correction: the staged records are not changed. The suggestion of
+#' each SPE-06 flag is a listed name, or a listed genus that replaces the typed genus.
+#'
+#' @param records Output of veg_record_taxa().
+#' @param flags Long flags table (`check_id`, `value`, `message`).
+#' @return `records` with `taxon` re-derived for the flagged typed names.
+veg_merge_misspellings <- function(records, flags, config = veg_config) {
+  checkmate::assert_names(
+    x = names(flags),
+    must.include = c("check_id", "value", "message")
+  )
+  spe06 <- flags[flags$check_id == "SPE-06", ]
+  suggestion <- stringi::stri_match_first_regex(
+    str = spe06$message,
+    pattern = "misspelling of \"(.*)\"\\.$"
+  )[, 2]
+  has_epithet <- stringi::stri_detect_fixed(str = suggestion, pattern = " ")
+  corrected <- if_else(
+    condition = has_epithet,
+    true = suggestion,
+    false = paste(
+      suggestion,
+      stringi::stri_replace_first_regex(
+        str = spe06$value,
+        pattern = "^\\S+\\s*",
+        replacement = ""
+      )
+    )
+  )
+  from <- veg_classify_names(x = spe06$value, config = config)$taxon
+  to <- veg_classify_names(x = corrected, config = config)$taxon
+  hit <- match(x = records$taxon, table = from)
+  records$taxon <- coalesce(to[hit], records$taxon)
+  records
+}

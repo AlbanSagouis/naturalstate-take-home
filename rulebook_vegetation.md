@@ -40,8 +40,8 @@ Each decision is also added as a comment on its GitHub issue.
   One severity per check, fixed in the catalogue (59 checks), so a flag count per check is also a
   count per severity. Alternative: severity per flag (for example by distance), rejected because the
   flags table would then no longer reconcile with a tracked specification Tech can implement.
-  Final flags: 963 = 11 error, 148 warning, 804 info (706 of the info flags are provisional
-  `herb_NNN` labels).
+  Final flags: 963 = 11 error, 103 warning, 849 info (706 of the info flags are provisional
+  `herb_NNN` labels, 45 are typed names with a space, SPE-02).
 
 - **Catalogue is the specification**: `outputs/vegetation/check_catalogue.csv` has id, level,
   severity, rule, columns, SOP reference, message template, who can resolve it, plus a ninth column
@@ -69,7 +69,10 @@ Each decision is also added as a comment on its GitHub issue.
   form itself only rejects `,;()` in that field. The quick-look figure "233 of 273" was not
   reproduced, since the counting basis is unknown; `species.csv` and `species_extra.csv` labels
   use a space too, so the regex is not applied to them. Alternative: also allow a space, rejected
-  because it would accept exactly what the SOP forbids.
+  because it would accept exactly what the SOP forbids. *(review 2026-10-09)* SPE-02 is an info
+  flag addressed to Tech and not a warning for the field team: it fires on every typed name (45
+  of 45) because the form itself accepts a space, so it cannot tell a careful team from a careless
+  one and would bury the real typing errors (SPE-05, SPE-06). The fix is in the form.
 
 - **Likely misspellings**: a typed name is flagged when it is within 2 edits (`utils::adist`) and
   15 percent of its length of a different name on the species list, or when its genus is exactly one
@@ -151,9 +154,11 @@ Each decision is also added as a comment on its GitHub issue.
   team can act on. *(provisional, 2026-10-08, #7; to confirm once the actual flags are seen)* Info
   stays in the flags table and the dashboard.
 
-- **Errors list after seeing the flags**: the list for the data providers holds the 11 errors and 148
-  warnings (159 items in 30 submissions of 28 plots), 110 for the field team, 26 for the data
-  manager and 23 for Tech. *(provisional, #8; to confirm)* Keeping all of them, with
+- **Errors list after seeing the flags**: the list for the data providers holds the 10 errors and 96
+  warnings of the accepted submissions (106 items in 28 submissions of 28 plots), 61 for the field
+  team, 23 for the data manager and 22 for Tech (all 32 submissions gave 159 items before the
+  rejected submissions were left off and SPE-02 became an information flag for Tech). *(provisional, #8; to
+  confirm)* Keeping all of them, with
   `who_can_resolve`, lets the data manager forward each item to the right person; the Tech items
   (the form summary) are marked so the field team does not act on them.
 
@@ -206,7 +211,20 @@ Each decision is also added as a comment on its GitHub issue.
   bound because a label can repeat a named taxon; identified richness is the headline. Alternative:
   count each label as a taxon, rejected because it inflates richness by a count that is not taxonomic.
 
-- **The summary tables are kept narrow**: the plot table has no info-flag count (the 757 info flags
+- **Sampling effort is also computed with the unknown labels counted as taxa**: most quadrats hold at
+  least one unknown label, so the identified taxa alone describe a non-random part of a plot
+  (identification favours common taxa). *(#9, review 2026-10-09)* `sampling_effort_upper_bound.csv`
+  repeats the effort table with each provisional label as a taxon (an upper bound, since a label
+  can repeat a named taxon). The conclusion holds: median completeness 66% against 68%, and Plot_13
+  instead of Plot_07 and Plot_26 approaches an asymptote. Alternative: set the asymptote call to NA
+  when the unknown share is high, rejected because most plots would then have no call.
+
+- **Typed misspellings do not inflate richness here**: `richness_sensitivity.csv` reads the three
+  typed misspellings of SPE-06 as the name they look like. *(#9, review 2026-10-09)* The count is 70
+  both ways, because each misspelled name is the only record of its taxon; merging would only lower
+  the richness where the correct spelling also occurs. It is a sensitivity, never a correction.
+
+- **The summary tables are kept narrow**: the plot table has no info-flag count (the 801 info flags
   of the accepted submissions are noise there; the survey table, the map layer and `flags.csv` keep
   them), numbers are written to two decimals, and `excluded_records.csv` lists the error-flagged
   quadrats and the rejected submissions, not the 40 quadrats of the rejected submissions, which the

@@ -149,6 +149,16 @@ veg_config <- list(
       "vegetation",
       "sampling_effort_excl_errors.csv"
     ),
+    effort_upper_bound = here::here(
+      "outputs",
+      "vegetation",
+      "sampling_effort_upper_bound.csv"
+    ),
+    richness_sensitivity = here::here(
+      "outputs",
+      "vegetation",
+      "richness_sensitivity.csv"
+    ),
     accumulation_curves = here::here(
       "outputs",
       "vegetation",

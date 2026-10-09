@@ -177,3 +177,21 @@ test_that("the written effort table reconciles with the plot summary", {
     effort$observed_richness[1]
   )
 })
+
+test_that("the richness sensitivity and the upper-bound effort table are written and ordered", {
+  paths <- veg_config$paths
+  skip_if_not(
+    fs::file_exists(paths$richness_sensitivity) &&
+      fs::file_exists(paths$effort_upper_bound) &&
+      fs::file_exists(paths$effort)
+  )
+  sens <- read_csv(paths$richness_sensitivity, show_col_types = FALSE)
+  expect_equal(nrow(sens), 3L)
+  # the upper bound cannot be below the main figure, and merging cannot add taxa
+  expect_gte(sens$n_taxa[3], sens$n_taxa[1])
+  expect_lte(sens$n_taxa[2], sens$n_taxa[1])
+  upper <- read_csv(paths$effort_upper_bound, show_col_types = FALSE)
+  main <- read_csv(paths$effort, show_col_types = FALSE)
+  expect_equal(upper$plot_name, main$plot_name)
+  expect_true(all(upper$observed_richness >= main$observed_richness))
+})

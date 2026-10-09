@@ -401,13 +401,13 @@ veg_check_catalogue <- function() {
     r(
       "SPE-02",
       "species",
-      "warning",
+      "info",
       "A typed species name is Genus_species (capital genus, lower-case epithet, underscore, no authorship).",
       "new_missing_canonical",
       "Herbaceous SOP section 2 (Canonical) and section 5 step 7",
-      "Quadrat {quadrat}: the name \"{value}\" is not written as Genus_species.",
-      "field team",
-      "Write the name as Genus_species (for example Chloris_virgata)."
+      "Quadrat {quadrat}: the name \"{value}\" is not written as Genus_species (the form accepts a space).",
+      "Tech",
+      "Nothing for the field team: the form accepts a space where the SOP asks for an underscore. Tech: make the form write Genus_species."
     ),
     r(
       "SPE-03",
